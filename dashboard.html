@@ -1,0 +1,1144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Business Sales Performance Analytics Dashboard</title>
+  <meta name="description" content="Interactive Business Sales Analytics Dashboard - Revenue trends, top products, category insights, and regional performance." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  <style>
+    :root {
+      --bg-primary: #0a0e1a;
+      --bg-secondary: #111827;
+      --bg-card: #161d2e;
+      --accent-1: #6366f1;
+      --accent-2: #8b5cf6;
+      --accent-3: #06b6d4;
+      --accent-4: #10b981;
+      --accent-5: #f59e0b;
+      --text-primary: #f1f5f9;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --border: rgba(99,102,241,0.15);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Inter', sans-serif; background: var(--bg-primary); color: var(--text-primary); min-height: 100vh; overflow-x: hidden; }
+    body::before { content: ''; position: fixed; inset: 0; background: radial-gradient(ellipse 80% 60% at 20% 10%, rgba(99,102,241,0.12) 0%, transparent 60%), radial-gradient(ellipse 60% 50% at 80% 80%, rgba(139,92,246,0.1) 0%, transparent 60%); pointer-events: none; z-index: 0; }
+    .wrapper { position: relative; z-index: 1; padding: 0 1.5rem 2rem; max-width: 1600px; margin: 0 auto; }
+    .header { display: flex; align-items: center; justify-content: space-between; padding: 1.8rem 2.4rem; background: linear-gradient(135deg, rgba(99,102,241,0.18) 0%, rgba(139,92,246,0.12) 100%); border: 1px solid var(--border); border-radius: 20px; margin: 1.5rem 0 1.8rem; backdrop-filter: blur(20px); box-shadow: 0 8px 32px rgba(0,0,0,0.4); animation: slideDown 0.6s ease-out; }
+    @keyframes slideDown { from { opacity:0; transform:translateY(-20px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+    .header-left h1 { font-size: clamp(1.2rem,2.5vw,1.9rem); font-weight: 900; background: linear-gradient(135deg,#fff 0%,#c7d2fe 40%,#a5b4fc 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .header-left p { color: var(--text-secondary); font-size: 0.82rem; margin-top: 0.3rem; }
+    .header-badge { display: flex; gap: 0.7rem; flex-wrap: wrap; }
+    .badge { padding: 0.4rem 1rem; border-radius: 50px; font-size: 0.73rem; font-weight: 600; border: 1px solid; }
+    .badge-purple { background: rgba(99,102,241,0.15); border-color: rgba(99,102,241,0.4); color: #a5b4fc; }
+    .badge-cyan { background: rgba(6,182,212,0.12); border-color: rgba(6,182,212,0.4); color: #67e8f9; }
+    .badge-green { background: rgba(16,185,129,0.12); border-color: rgba(16,185,129,0.4); color: #6ee7b7; }
+    .filters-bar { display: flex; gap: 1rem; flex-wrap: wrap; align-items: center; padding: 1rem 1.4rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; margin-bottom: 1.8rem; animation: fadeIn 0.6s 0.2s ease-out both; }
+    .filter-group { display: flex; align-items: center; gap: 0.5rem; }
+    .filter-group label { font-size: 0.72rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap; }
+    .filter-group select { background: var(--bg-secondary); border: 1px solid rgba(99,102,241,0.25); color: var(--text-primary); border-radius: 8px; padding: 0.4rem 0.8rem; font-size: 0.8rem; font-family: 'Inter',sans-serif; cursor: pointer; outline: none; }
+    .filter-group select option { background: #1e2640; }
+    .reset-btn { padding: 0.4rem 1.1rem; background: linear-gradient(135deg,var(--accent-1),var(--accent-2)); border: none; border-radius: 8px; color: #fff; font-size: 0.78rem; font-weight: 600; cursor: pointer; transition: opacity 0.2s; }
+    .reset-btn:hover { opacity: 0.85; }
+    .filter-spacer { flex: 1; }
+    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(190px,1fr)); gap: 1rem; margin-bottom: 1.8rem; animation: fadeIn 0.6s 0.3s ease-out both; }
+    .kpi-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 1.3rem 1.4rem; position: relative; overflow: hidden; transition: transform 0.25s, box-shadow 0.25s; cursor: default; }
+    .kpi-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; border-radius: 16px 16px 0 0; background: var(--kpi-color,var(--accent-1)); }
+    .kpi-card:hover { transform: translateY(-4px); box-shadow: 0 16px 40px rgba(0,0,0,0.5); }
+    .kpi-icon { font-size: 1.6rem; margin-bottom: 0.8rem; display: block; }
+    .kpi-label { font-size: 0.7rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 0.5rem; }
+    .kpi-value { font-size: 1.8rem; font-weight: 800; line-height: 1; }
+    .kpi-sub { font-size: 0.72rem; color: var(--text-muted); margin-top: 0.4rem; }
+    .kpi-trend { position: absolute; bottom: 1rem; right: 1.2rem; font-size: 0.72rem; font-weight: 700; padding: 0.2rem 0.55rem; border-radius: 20px; }
+    .trend-up { background: rgba(16,185,129,0.15); color: #34d399; }
+    .trend-down { background: rgba(239,68,68,0.15); color: #f87171; }
+    .charts-row { display: grid; gap: 1.2rem; margin-bottom: 1.2rem; animation: fadeIn 0.6s 0.4s ease-out both; }
+    .row-2 { grid-template-columns: 2fr 1fr; }
+    .row-3 { grid-template-columns: repeat(3,1fr); }
+    .row-2b { grid-template-columns: 1fr 1fr; }
+    .chart-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 1.4rem; transition: box-shadow 0.3s; }
+    .chart-card:hover { box-shadow: 0 12px 36px rgba(0,0,0,0.45); }
+    .chart-card-title { font-size: 0.88rem; font-weight: 700; margin-bottom: 0.3rem; display: flex; align-items: center; gap: 0.5rem; }
+    .chart-card-title .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .chart-sub { font-size: 0.72rem; color: var(--text-muted); margin-bottom: 1rem; }
+    canvas { display: block; }
+    .insight-section { background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 1.6rem; animation: fadeIn 0.6s 0.55s ease-out both; }
+    .insight-section h2 { font-size: 1rem; font-weight: 700; margin-bottom: 1.2rem; }
+    .insight-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(300px,1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+    .insight-card { background: linear-gradient(135deg,rgba(99,102,241,0.08) 0%,rgba(139,92,246,0.05) 100%); border: 1px solid rgba(99,102,241,0.2); border-radius: 12px; padding: 1.1rem 1.3rem; position: relative; overflow: hidden; }
+    .insight-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--insight-color,var(--accent-1)); }
+    .insight-card-title { font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.4rem; }
+    .insight-card-value { font-size: 1rem; font-weight: 700; margin-bottom: 0.25rem; }
+    .insight-card-detail { font-size: 0.75rem; color: var(--text-secondary); line-height: 1.5; }
+    .reco-list { list-style: none; }
+    .reco-list li { padding: 0.7rem 0; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 0.82rem; color: var(--text-secondary); display: flex; align-items: flex-start; gap: 0.7rem; line-height: 1.5; }
+    .reco-list li:last-child { border-bottom: none; }
+    .reco-num { flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%; background: linear-gradient(135deg,var(--accent-1),var(--accent-2)); display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 800; color: #fff; margin-top: 1px; }
+    .table-section { background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 1.4rem; margin-top: 1.2rem; animation: fadeIn 0.6s 0.6s ease-out both; }
+    .table-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.7rem; }
+    .table-header h2 { font-size: 1rem; font-weight: 700; }
+    .export-btn { padding: 0.4rem 1rem; border: 1px solid rgba(99,102,241,0.4); border-radius: 8px; background: rgba(99,102,241,0.1); color: #a5b4fc; font-size: 0.75rem; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+    .export-btn:hover { background: rgba(99,102,241,0.2); }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+    thead tr { border-bottom: 1px solid rgba(99,102,241,0.2); }
+    th { padding: 0.6rem 0.8rem; text-align: left; color: var(--text-muted); font-weight: 700; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.07em; }
+    tbody tr { border-bottom: 1px solid rgba(255,255,255,0.04); transition: background 0.15s; }
+    tbody tr:hover { background: rgba(99,102,241,0.06); }
+    td { padding: 0.55rem 0.8rem; color: var(--text-secondary); }
+    td:first-child { color: var(--text-primary); font-weight: 600; }
+    .rank-badge { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; font-size: 0.65rem; font-weight: 800; }
+    .rank-1 { background: rgba(245,158,11,0.2); color: #fbbf24; }
+    .rank-2 { background: rgba(148,163,184,0.15); color: #cbd5e1; }
+    .rank-3 { background: rgba(180,120,60,0.15); color: #cd7c34; }
+    .rank-n { background: rgba(99,102,241,0.1); color: var(--text-muted); }
+    .footer { text-align: center; padding: 1.5rem 0; color: var(--text-muted); font-size: 0.72rem; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg-primary); }
+    ::-webkit-scrollbar-thumb { background: rgba(99,102,241,0.35); border-radius: 4px; }
+    @media (max-width: 900px) { .row-3,.row-2,.row-2b { grid-template-columns: 1fr; } .filters-bar { flex-direction: column; align-items: flex-start; } }
+  </style>
+</head>
+<body>
+<div class="wrapper">
+  <header class="header">
+    <div class="header-left">
+      <h1>📊 Business Sales Performance Analytics</h1>
+      <p>Interactive Dashboard · 2023–2024 · Full-Year Sales Intelligence</p>
+    </div>
+    <div class="header-badge">
+      <span class="badge badge-purple">FutureInterns Task 1</span>
+      <span class="badge badge-cyan">Live KPIs</span>
+      <span class="badge badge-green">791 Records</span>
+    </div>
+  </header>
+
+  <div class="filters-bar">
+    <div class="filter-group"><label for="fYear">Year</label><select id="fYear"><option value="all">All Years</option><option value="2023">2023</option><option value="2024">2024</option></select></div>
+    <div class="filter-group"><label for="fCategory">Category</label><select id="fCategory"><option value="all">All Categories</option></select></div>
+    <div class="filter-group"><label for="fRegion">Region</label><select id="fRegion"><option value="all">All Regions</option></select></div>
+    <div class="filter-group"><label for="fProduct">Product</label><select id="fProduct"><option value="all">All Products</option></select></div>
+    <div class="filter-group"><label for="fTopN">Top N</label><select id="fTopN"><option value="5">Top 5</option><option value="8" selected>Top 8</option><option value="10">Top 10</option></select></div>
+    <div class="filter-spacer"></div>
+    <button class="reset-btn" id="resetBtn">↺ Reset</button>
+  </div>
+
+  <div class="kpi-grid">
+    <div class="kpi-card" style="--kpi-color:#6366f1"><span class="kpi-icon">💰</span><div class="kpi-label">Total Revenue</div><div class="kpi-value" id="kRevenue">—</div><div class="kpi-sub">Gross Sales</div><span class="kpi-trend" id="kRevTrend"></span></div>
+    <div class="kpi-card" style="--kpi-color:#8b5cf6"><span class="kpi-icon">🧾</span><div class="kpi-label">Total Orders</div><div class="kpi-value" id="kOrders">—</div><div class="kpi-sub">Unique transactions</div></div>
+    <div class="kpi-card" style="--kpi-color:#06b6d4"><span class="kpi-icon">📦</span><div class="kpi-label">Units Sold</div><div class="kpi-value" id="kUnits">—</div><div class="kpi-sub">Total quantity</div></div>
+    <div class="kpi-card" style="--kpi-color:#10b981"><span class="kpi-icon">📈</span><div class="kpi-label">Avg Order Value</div><div class="kpi-value" id="kAOV">—</div><div class="kpi-sub">Revenue / Orders</div></div>
+    <div class="kpi-card" style="--kpi-color:#f59e0b"><span class="kpi-icon">🏷️</span><div class="kpi-label">Avg Unit Price</div><div class="kpi-value" id="kAvgPrice">—</div><div class="kpi-sub">Avg selling price</div></div>
+    <div class="kpi-card" style="--kpi-color:#ef4444"><span class="kpi-icon">🗓️</span><div class="kpi-label">Avg Daily Rev.</div><div class="kpi-value" id="kDaily">—</div><div class="kpi-sub">Revenue per day</div></div>
+  </div>
+
+  <div class="charts-row row-2">
+    <div class="chart-card">
+      <div class="chart-card-title"><span class="dot" style="background:#6366f1"></span>Monthly Revenue Trend</div>
+      <div class="chart-sub">Revenue aggregated by month — spot seasonality and growth patterns</div>
+      <canvas id="trendChart" height="230"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="chart-card-title"><span class="dot" style="background:#8b5cf6"></span>Revenue by Category</div>
+      <div class="chart-sub">Share of total revenue across product categories</div>
+      <canvas id="categoryDonut" height="230"></canvas>
+    </div>
+  </div>
+
+  <div class="charts-row row-3">
+    <div class="chart-card">
+      <div class="chart-card-title"><span class="dot" style="background:#06b6d4"></span>Top Products by Revenue</div>
+      <div class="chart-sub">Ranked by total revenue contribution</div>
+      <canvas id="topProductsChart" height="270"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="chart-card-title"><span class="dot" style="background:#10b981"></span>Regional Performance</div>
+      <div class="chart-sub">Revenue split across geographic regions</div>
+      <canvas id="regionChart" height="270"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="chart-card-title"><span class="dot" style="background:#f59e0b"></span>Units Sold by Category</div>
+      <div class="chart-sub">Quantity distribution across categories</div>
+      <canvas id="categoryQtyChart" height="270"></canvas>
+    </div>
+  </div>
+
+  <div class="charts-row row-2b">
+    <div class="chart-card">
+      <div class="chart-card-title"><span class="dot" style="background:#a78bfa"></span>Quarterly Revenue Comparison</div>
+      <div class="chart-sub">Year-over-year quarterly performance (2023 vs 2024)</div>
+      <canvas id="quarterlyChart" height="240"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="chart-card-title"><span class="dot" style="background:#34d399"></span>Revenue by Region and Category</div>
+      <div class="chart-sub">Stacked revenue contribution per region</div>
+      <canvas id="regionCategoryChart" height="240"></canvas>
+    </div>
+  </div>
+
+  <div class="insight-section">
+    <h2>🔍 Business Insights and Actionable Recommendations</h2>
+    <div class="insight-grid" id="insightGrid"></div>
+    <h2 style="margin-bottom:0.9rem;font-size:0.9rem;">💡 Strategic Recommendations</h2>
+    <ul class="reco-list" id="recoList"></ul>
+  </div>
+
+  <div class="table-section">
+    <div class="table-header">
+      <h2>🏆 Top Performing Products — Detailed View</h2>
+      <button class="export-btn" id="exportBtn">⬇ Export CSV</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Rank</th><th>Product</th><th>Category</th><th>Revenue</th><th>Units Sold</th><th>Orders</th><th>Avg Unit Price</th><th>Revenue Share</th></tr></thead>
+        <tbody id="productTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="footer">Business Sales Performance Analytics Dashboard · FutureInterns Task 1 · Built with Chart.js and Vanilla JS</div>
+</div>
+
+<script>
+const RAW_CSV = `Order_ID,Order_Date,Product,Category,Region,Quantity,Unit_Price,Discount,Revenue
+1001,2023-01-02,Wireless Mouse,Electronics,North,5,45,0.05,213.75
+1002,2023-01-02,Standing Desk,Furniture,South,2,550,0.2,880.0
+1003,2023-01-02,Wireless Mouse,Electronics,West,1,45,0,45
+1004,2023-01-03,Standing Desk,Furniture,South,1,550,0.2,440.0
+1005,2023-01-04,Smart Speaker,Electronics,West,4,95,0.15,323.0
+1006,2023-01-05,Notebook Set,Office Supplies,North,3,18,0.15,45.9
+1007,2023-01-05,Inkjet Printer,Office Supplies,East,3,180,0.05,513.0
+1008,2023-01-05,Inkjet Printer,Office Supplies,North,2,180,0.15,306.0
+1009,2023-01-06,Inkjet Printer,Office Supplies,East,5,180,0,900
+1010,2023-01-09,Plant Pot,Home Decor,North,7,30,0,210
+1012,2023-01-09,Standing Desk,Furniture,North,1,550,0.05,522.5
+1013,2023-01-10,Wireless Mouse,Electronics,South,2,45,0.15,76.5
+1014,2023-01-10,Notebook Set,Office Supplies,West,6,18,0.05,102.6
+1015,2023-01-11,Inkjet Printer,Office Supplies,South,5,180,0,900
+1016,2023-01-11,Storage Cabinet,Furniture,South,4,280,0.05,1064.0
+1017,2023-01-12,Desk Lamp,Home Decor,East,4,60,0.1,216.0
+1018,2023-01-12,Laptop Pro 14,Electronics,South,1,1200,0.1,1080.0
+1019,2023-01-13,Notebook Set,Office Supplies,North,4,18,0.2,57.6
+1020,2023-01-13,Inkjet Printer,Office Supplies,South,8,180,0.15,1224.0
+1021,2023-01-16,Plant Pot,Home Decor,South,5,30,0.05,142.5
+1022,2023-01-16,Standing Desk,Furniture,East,7,550,0.2,3080.0
+1023,2023-01-16,Desk Lamp,Home Decor,East,4,60,0.05,228.0
+1024,2023-01-17,Plant Pot,Home Decor,North,1,30,0,30
+1025,2023-01-17,Office Chair,Furniture,South,7,220,0.2,1232.0
+1026,2023-01-17,Wireless Mouse,Electronics,West,7,45,0,252.0
+1027,2023-01-18,Smart Speaker,Electronics,East,1,95,0,95
+1028,2023-01-18,Smart Speaker,Electronics,East,6,95,0,570
+1029,2023-01-19,Desk Lamp,Home Decor,South,8,60,0,480
+1030,2023-01-19,Notebook Set,Office Supplies,South,2,18,0.1,32.4
+1031,2023-01-20,Smart Speaker,Electronics,South,3,95,0.1,256.5
+1032,2023-01-20,Office Chair,Furniture,North,6,220,0.15,1122.0
+1033,2023-01-20,Laptop Pro 14,Electronics,North,6,1200,0.1,6480.0
+1034,2023-01-23,Laptop Pro 14,Electronics,South,2,1200,0,2400
+1035,2023-01-24,Plant Pot,Home Decor,North,3,30,0.05,85.5
+1036,2023-01-24,Plant Pot,Home Decor,South,5,30,0.2,120.0
+1037,2023-01-24,Storage Cabinet,Furniture,West,4,280,0.2,896.0
+1038,2023-01-25,Standing Desk,Furniture,East,7,550,0.1,3465.0
+1039,2023-01-25,Plant Pot,Home Decor,West,2,30,0.05,57.0
+1040,2023-01-25,Standing Desk,Furniture,North,6,550,0,3300
+1041,2023-01-26,Smart Speaker,Electronics,South,4,95,0,380
+1042,2023-01-26,Wireless Mouse,Electronics,North,4,45,0,180
+1043,2023-01-26,Laptop Pro 14,Electronics,East,2,1200,0.2,1920.0
+1044,2023-01-27,Notebook Set,Office Supplies,West,4,18,0.2,57.6
+1045,2023-01-30,Storage Cabinet,Furniture,West,4,280,0.15,952.0
+1046,2023-01-31,Standing Desk,Furniture,North,2,550,0.15,935.0
+1047,2023-01-31,Inkjet Printer,Office Supplies,West,7,180,0.15,1071.0
+1048,2023-02-01,Laptop Pro 14,Electronics,North,1,1200,0.15,1020.0
+1049,2023-02-01,Inkjet Printer,Office Supplies,North,4,180,0.05,684.0
+1050,2023-02-01,Standing Desk,Furniture,West,3,550,0.15,1402.5
+1051,2023-02-02,Notebook Set,Office Supplies,West,4,18,0,72
+1052,2023-02-03,Smart Speaker,Electronics,North,1,95,0.2,76.0
+1053,2023-02-03,Laptop Pro 14,Electronics,North,4,1200,0.05,4560.0
+1054,2023-02-06,Plant Pot,Home Decor,West,4,30,0.15,102.0
+1055,2023-02-06,Laptop Pro 14,Electronics,South,7,1200,0,8400
+1056,2023-02-07,Notebook Set,Office Supplies,West,5,18,0.15,76.5
+1057,2023-02-07,Smart Speaker,Electronics,West,3,95,0.05,270.75
+1058,2023-02-08,Standing Desk,Furniture,North,1,550,0.1,495.0
+1059,2023-02-08,Laptop Pro 14,Electronics,North,8,1200,0.2,7680.0
+1060,2023-02-09,Office Chair,Furniture,North,2,220,0.05,418.0
+1062,2023-02-09,Wireless Mouse,Electronics,South,1,45,0.2,36.0
+1063,2023-02-10,Desk Lamp,Home Decor,East,5,60,0.05,285.0
+1064,2023-02-13,Inkjet Printer,Office Supplies,South,5,180,0.15,765.0
+1065,2023-02-13,Office Chair,Furniture,East,8,220,0.1,1584.0
+1066,2023-02-13,Wireless Mouse,Electronics,North,8,45,0.2,288.0
+1067,2023-02-14,Wireless Mouse,Electronics,North,4,45,0.2,144.0
+1068,2023-02-14,Notebook Set,Office Supplies,South,6,18,0,108
+1069,2023-02-14,Standing Desk,Furniture,East,5,550,0.05,2612.5
+1070,2023-02-15,Smart Speaker,Electronics,East,1,95,0.2,76.0
+1071,2023-02-15,Notebook Set,Office Supplies,North,3,18,0.1,48.6
+1072,2023-02-16,Wireless Mouse,Electronics,South,5,45,0.1,202.5
+1073,2023-02-17,Standing Desk,Furniture,East,4,550,0.1,1980.0
+1074,2023-02-17,Smart Speaker,Electronics,West,5,95,0,475
+1075,2023-02-17,Wireless Mouse,Electronics,West,5,45,0,225
+1076,2023-02-20,Inkjet Printer,Office Supplies,South,5,180,0.05,855.0
+1077,2023-02-21,Plant Pot,Home Decor,West,1,30,0,30
+1078,2023-02-21,Wireless Mouse,Electronics,South,1,45,0.1,40.5
+1079,2023-02-21,Storage Cabinet,Furniture,South,7,280,0.05,1862.0
+1080,2023-02-22,Notebook Set,Office Supplies,East,1,18,0.1,16.2
+1081,2023-02-23,Standing Desk,Furniture,North,6,550,0.2,2640.0
+1082,2023-02-24,Storage Cabinet,Furniture,South,4,280,0.05,1064.0
+1083,2023-02-24,Office Chair,Furniture,West,1,220,0.05,209.0
+1084,2023-02-27,Inkjet Printer,Office Supplies,West,4,180,0.1,648.0
+1085,2023-02-27,Office Chair,Furniture,North,7,220,0,1540
+1086,2023-02-27,Plant Pot,Home Decor,South,4,30,0.15,102.0
+1087,2023-02-28,Notebook Set,Office Supplies,South,4,18,0,72
+1088,2023-02-28,Standing Desk,Furniture,West,6,550,0.1,2970.0
+1089,2023-03-01,Notebook Set,Office Supplies,East,7,18,0.2,100.8
+1090,2023-03-02,Laptop Pro 14,Electronics,North,5,1200,0.05,5700.0
+1091,2023-03-02,Storage Cabinet,Furniture,East,1,280,0,280
+1092,2023-03-03,Desk Lamp,Home Decor,East,6,60,0.15,306.0
+1093,2023-03-03,Storage Cabinet,Furniture,North,7,280,0.2,1568.0
+1094,2023-03-03,Standing Desk,Furniture,East,1,550,0.15,467.5
+1095,2023-03-06,Smart Speaker,Electronics,South,6,95,0.15,484.5
+1096,2023-03-07,Inkjet Printer,Office Supplies,East,2,180,0.1,324.0
+1097,2023-03-08,Notebook Set,Office Supplies,West,6,18,0.15,91.8
+1098,2023-03-08,Notebook Set,Office Supplies,South,4,18,0.15,61.2
+1099,2023-03-08,Desk Lamp,Home Decor,South,5,60,0.15,255.0
+1100,2023-03-09,Laptop Pro 14,Electronics,East,5,1200,0.05,5700.0
+1101,2023-03-09,Desk Lamp,Home Decor,East,8,60,0.15,408.0
+1102,2023-03-09,Plant Pot,Home Decor,South,8,30,0.05,228.0
+1103,2023-03-10,Wireless Mouse,Electronics,East,6,45,0,270
+1104,2023-03-10,Standing Desk,Furniture,East,4,550,0.05,2090.0
+1105,2023-03-10,Office Chair,Furniture,North,1,220,0.05,209.0
+1106,2023-03-13,Storage Cabinet,Furniture,North,8,280,0.15,1904.0
+1107,2023-03-13,Storage Cabinet,Furniture,South,7,280,0.15,1666.0
+1108,2023-03-14,Standing Desk,Furniture,South,1,550,0,550
+1109,2023-03-14,Desk Lamp,Home Decor,South,3,60,0.2,144.0
+1110,2023-03-15,Laptop Pro 14,Electronics,South,2,1200,0.15,2040.0
+1111,2023-03-15,Office Chair,Furniture,West,6,220,0.15,1122.0
+1112,2023-03-16,Smart Speaker,Electronics,West,8,95,0.05,722.0
+1113,2023-03-16,Plant Pot,Home Decor,West,5,30,0.05,142.5
+1114,2023-03-16,Notebook Set,Office Supplies,West,4,18,0.1,64.8
+1115,2023-03-17,Wireless Mouse,Electronics,East,4,45,0.1,162.0
+1116,2023-03-17,Inkjet Printer,Office Supplies,East,2,180,0.05,342.0
+1117,2023-03-20,Standing Desk,Furniture,West,3,550,0.05,1567.5
+1118,2023-03-21,Desk Lamp,Home Decor,West,6,60,0.2,288.0
+1119,2023-03-22,Desk Lamp,Home Decor,North,4,60,0.15,204.0
+1120,2023-03-22,Desk Lamp,Home Decor,North,7,60,0.15,357.0
+1121,2023-03-23,Inkjet Printer,Office Supplies,East,7,180,0.15,1071.0
+1122,2023-03-24,Smart Speaker,Electronics,South,8,95,0.05,722.0
+1123,2023-03-24,Notebook Set,Office Supplies,West,8,18,0,144
+1124,2023-03-24,Desk Lamp,Home Decor,East,7,60,0.05,399.0
+1125,2023-03-27,Office Chair,Furniture,North,7,220,0.2,1232.0
+1126,2023-03-27,Storage Cabinet,Furniture,North,2,280,0.15,476.0
+1127,2023-03-28,Plant Pot,Home Decor,South,1,30,0.1,27.0
+1128,2023-03-29,Inkjet Printer,Office Supplies,South,8,180,0.1,1296.0
+1129,2023-03-29,Inkjet Printer,Office Supplies,West,5,180,0.15,765.0
+1130,2023-03-30,Wireless Mouse,Electronics,West,1,45,0.2,36.0
+1131,2023-03-30,Laptop Pro 14,Electronics,East,4,1200,0,4800
+1132,2023-03-31,Laptop Pro 14,Electronics,North,4,1200,0.05,4560.0
+1133,2023-03-31,Laptop Pro 14,Electronics,South,4,1200,0.05,4560.0
+1134,2023-03-31,Plant Pot,Home Decor,North,4,30,0.15,102.0
+1135,2023-04-03,Notebook Set,Office Supplies,East,3,18,0.2,43.2
+1136,2023-04-03,Storage Cabinet,Furniture,North,3,280,0.1,756.0
+1137,2023-04-03,Wireless Mouse,Electronics,North,5,45,0.2,180.0
+1138,2023-04-04,Desk Lamp,Home Decor,West,4,60,0,240
+1139,2023-04-04,Storage Cabinet,Furniture,South,2,280,0.1,504.0
+1140,2023-04-04,Storage Cabinet,Furniture,North,1,280,0.1,252.0
+1141,2023-04-05,Desk Lamp,Home Decor,East,2,60,0.2,96.0
+1142,2023-04-05,Inkjet Printer,Office Supplies,North,7,180,0.15,1071.0
+1143,2023-04-05,Wireless Mouse,Electronics,West,6,45,0.15,229.5
+1144,2023-04-06,Office Chair,Furniture,West,3,220,0.2,528.0
+1145,2023-04-06,Notebook Set,Office Supplies,West,8,18,0.15,122.4
+1146,2023-04-06,Storage Cabinet,Furniture,East,6,280,0.05,1596.0
+1147,2023-04-07,Notebook Set,Office Supplies,West,4,18,0.15,61.2
+1148,2023-04-10,Storage Cabinet,Furniture,West,6,280,0,1680
+1149,2023-04-10,Plant Pot,Home Decor,East,3,30,0.15,76.5
+1150,2023-04-10,Standing Desk,Furniture,East,5,550,0.1,2475.0
+1151,2023-04-11,Storage Cabinet,Furniture,East,1,280,0.2,224.0
+1152,2023-04-11,Standing Desk,Furniture,North,4,550,0.15,1870.0
+1153,2023-04-12,Smart Speaker,Electronics,South,8,95,0.15,646.0
+1154,2023-04-12,Plant Pot,Home Decor,North,2,30,0.1,54.0
+1155,2023-04-13,Desk Lamp,Home Decor,South,5,60,0.2,240.0
+1156,2023-04-14,Plant Pot,Home Decor,East,7,30,0.2,168.0
+1157,2023-04-14,Inkjet Printer,Office Supplies,East,8,180,0.1,1296.0
+1158,2023-04-17,Notebook Set,Office Supplies,South,2,18,0.05,34.2
+1159,2023-04-17,Inkjet Printer,Office Supplies,North,3,180,0.05,513.0
+1160,2023-04-18,Plant Pot,Home Decor,East,5,30,0,150
+1161,2023-04-19,Notebook Set,Office Supplies,South,6,18,0.05,102.6
+1162,2023-04-20,Laptop Pro 14,Electronics,South,5,1200,0,6000
+1163,2023-04-20,Laptop Pro 14,Electronics,East,3,1200,0.15,3060.0
+1164,2023-04-21,Laptop Pro 14,Electronics,East,8,1200,0.15,8160.0
+1165,2023-04-24,Inkjet Printer,Office Supplies,South,1,180,0.1,162.0
+1166,2023-04-24,Plant Pot,Home Decor,North,2,30,0.15,51.0
+1167,2023-04-25,Wireless Mouse,Electronics,North,3,45,0.05,128.25
+1168,2023-04-25,Storage Cabinet,Furniture,East,2,280,0.05,532.0
+1169,2023-04-26,Smart Speaker,Electronics,West,4,95,0.2,304.0
+1170,2023-04-27,Plant Pot,Home Decor,West,5,30,0.2,120.0
+1171,2023-04-27,Desk Lamp,Home Decor,East,1,60,0.2,48.0
+1172,2023-04-28,Wireless Mouse,Electronics,South,4,45,0.1,162.0
+1173,2023-04-28,Wireless Mouse,Electronics,South,4,45,0.05,171.0
+1174,2023-04-28,Smart Speaker,Electronics,North,3,95,0,285
+1175,2023-05-01,Plant Pot,Home Decor,West,5,30,0,150
+1176,2023-05-01,Standing Desk,Furniture,East,5,550,0.15,2337.5
+1177,2023-05-02,Standing Desk,Furniture,East,4,550,0.15,1870.0
+1178,2023-05-03,Smart Speaker,Electronics,South,3,95,0.1,256.5
+1179,2023-05-04,Wireless Mouse,Electronics,North,3,45,0.1,121.5
+1180,2023-05-05,Storage Cabinet,Furniture,East,8,280,0,2240
+1181,2023-05-05,Plant Pot,Home Decor,East,7,30,0.1,189.0
+1182,2023-05-05,Smart Speaker,Electronics,West,8,95,0,760
+1183,2023-05-08,Laptop Pro 14,Electronics,West,6,1200,0.2,5760.0
+1184,2023-05-08,Notebook Set,Office Supplies,North,2,18,0.05,34.2
+1185,2023-05-08,Storage Cabinet,Furniture,North,5,280,0.2,1120.0
+1186,2023-05-09,Office Chair,Furniture,West,8,220,0.1,1584.0
+1187,2023-05-10,Storage Cabinet,Furniture,West,8,280,0,2240
+1188,2023-05-11,Inkjet Printer,Office Supplies,West,6,180,0.1,972.0
+1189,2023-05-11,Wireless Mouse,Electronics,South,6,45,0.15,229.5
+1190,2023-05-12,Plant Pot,Home Decor,East,7,30,0.2,168.0
+1191,2023-05-12,Laptop Pro 14,Electronics,West,2,1200,0.1,2160.0
+1192,2023-05-12,Notebook Set,Office Supplies,East,2,18,0.15,30.6
+1193,2023-05-15,Laptop Pro 14,Electronics,West,7,1200,0,8400
+1194,2023-05-15,Standing Desk,Furniture,East,8,550,0.15,3740.0
+1195,2023-05-15,Laptop Pro 14,Electronics,South,5,1200,0.2,4800.0
+1196,2023-05-16,Notebook Set,Office Supplies,West,8,18,0,144
+1197,2023-05-17,Storage Cabinet,Furniture,South,3,280,0.1,756.0
+1198,2023-05-18,Laptop Pro 14,Electronics,West,2,1200,0.05,2280.0
+1199,2023-05-18,Wireless Mouse,Electronics,West,2,45,0.05,85.5
+1200,2023-05-18,Plant Pot,Home Decor,East,5,30,0.15,127.5
+1201,2023-05-19,Plant Pot,Home Decor,South,8,30,0.2,192.0
+1202,2023-05-19,Office Chair,Furniture,West,4,220,0.2,704.0
+1203,2023-05-22,Office Chair,Furniture,North,5,220,0.15,935.0
+1204,2023-05-22,Inkjet Printer,Office Supplies,East,1,180,0.1,162.0
+1205,2023-05-22,Notebook Set,Office Supplies,West,3,18,0.15,45.9
+1206,2023-05-23,Plant Pot,Home Decor,East,6,30,0.2,144.0
+1207,2023-05-23,Smart Speaker,Electronics,West,8,95,0.1,684.0
+1208,2023-05-23,Standing Desk,Furniture,South,7,550,0.05,3657.5
+1209,2023-05-24,Laptop Pro 14,Electronics,East,8,1200,0.15,8160.0
+1210,2023-05-24,Desk Lamp,Home Decor,South,8,60,0,480
+1211,2023-05-25,Smart Speaker,Electronics,East,2,95,0.15,161.5
+1212,2023-05-26,Smart Speaker,Electronics,West,1,95,0.05,90.25
+1213,2023-05-29,Office Chair,Furniture,North,8,220,0.1,1584.0
+1214,2023-05-29,Inkjet Printer,Office Supplies,West,2,180,0.1,324.0
+1215,2023-05-30,Smart Speaker,Electronics,West,6,95,0.15,484.5
+1216,2023-05-30,Smart Speaker,Electronics,North,2,95,0.05,180.5
+1217,2023-05-30,Notebook Set,Office Supplies,South,2,18,0.15,30.6
+1218,2023-05-31,Wireless Mouse,Electronics,West,3,45,0.1,121.5
+1219,2023-06-01,Laptop Pro 14,Electronics,East,1,1200,0.1,1080.0
+1220,2023-06-02,Inkjet Printer,Office Supplies,West,3,180,0.05,513.0
+1221,2023-06-02,Smart Speaker,Electronics,West,3,95,0.05,270.75
+1222,2023-06-05,Wireless Mouse,Electronics,West,4,45,0.15,153.0
+1223,2023-06-06,Office Chair,Furniture,South,8,220,0.1,1584.0
+1224,2023-06-06,Plant Pot,Home Decor,East,1,30,0.15,25.5
+1225,2023-06-06,Notebook Set,Office Supplies,South,2,18,0.15,30.6
+1226,2023-06-07,Storage Cabinet,Furniture,East,7,280,0.1,1764.0
+1227,2023-06-07,Plant Pot,Home Decor,East,4,30,0.15,102.0
+1228,2023-06-08,Wireless Mouse,Electronics,South,7,45,0.2,252.0
+1229,2023-06-08,Inkjet Printer,Office Supplies,East,5,180,0,900
+1230,2023-06-09,Desk Lamp,Home Decor,East,1,60,0.2,48.0
+1231,2023-06-09,Laptop Pro 14,Electronics,West,5,1200,0.05,5700.0
+1232,2023-06-09,Storage Cabinet,Furniture,East,4,280,0.05,1064.0
+1233,2023-06-12,Notebook Set,Office Supplies,South,2,18,0,36
+1234,2023-06-12,Notebook Set,Office Supplies,West,1,18,0.2,14.4
+1235,2023-06-12,Inkjet Printer,Office Supplies,South,2,180,0.1,324.0
+1236,2023-06-13,Desk Lamp,Home Decor,South,4,60,0.05,228.0
+1237,2023-06-13,Smart Speaker,Electronics,East,5,95,0.05,451.25
+1238,2023-06-14,Plant Pot,Home Decor,East,6,30,0,180
+1239,2023-06-14,Plant Pot,Home Decor,North,3,30,0.05,85.5
+1240,2023-06-15,Desk Lamp,Home Decor,East,2,60,0.15,102.0
+1241,2023-06-15,Laptop Pro 14,Electronics,East,2,1200,0.15,2040.0
+1242,2023-06-15,Inkjet Printer,Office Supplies,East,7,180,0.1,1134.0
+1243,2023-06-16,Standing Desk,Furniture,West,1,550,0.2,440.0
+1244,2023-06-19,Inkjet Printer,Office Supplies,South,2,180,0.15,306.0
+1245,2023-06-19,Notebook Set,Office Supplies,West,2,18,0.05,34.2
+1246,2023-06-19,Laptop Pro 14,Electronics,North,5,1200,0.15,5100.0
+1247,2023-06-20,Wireless Mouse,Electronics,South,3,45,0.15,114.75
+1248,2023-06-21,Inkjet Printer,Office Supplies,West,3,180,0.15,459.0
+1249,2023-06-21,Wireless Mouse,Electronics,West,7,45,0.1,283.5
+1250,2023-06-22,Inkjet Printer,Office Supplies,South,8,180,0.15,1224.0
+1251,2023-06-23,Inkjet Printer,Office Supplies,North,6,180,0.2,864.0
+1252,2023-06-26,Inkjet Printer,Office Supplies,North,7,180,0.1,1134.0
+1253,2023-06-26,Standing Desk,Furniture,North,8,550,0,4400
+1254,2023-06-26,Standing Desk,Furniture,North,1,550,0.1,495.0
+1255,2023-06-27,Office Chair,Furniture,South,2,220,0.2,352.0
+1256,2023-06-28,Storage Cabinet,Furniture,South,4,280,0.1,1008.0
+1257,2023-06-29,Storage Cabinet,Furniture,North,5,280,0.05,1330.0
+1258,2023-06-30,Smart Speaker,Electronics,East,3,95,0,285
+1259,2023-07-03,Laptop Pro 14,Electronics,South,1,1200,0.1,1080.0
+1260,2023-07-03,Standing Desk,Furniture,East,1,550,0.05,522.5
+1261,2023-07-03,Notebook Set,Office Supplies,North,3,18,0.15,45.9
+1262,2023-07-04,Wireless Mouse,Electronics,North,8,45,0.15,306.0
+1263,2023-07-04,Inkjet Printer,Office Supplies,North,8,180,0.2,1152.0
+1264,2023-07-04,Standing Desk,Furniture,North,5,550,0.15,2337.5
+1265,2023-07-05,Laptop Pro 14,Electronics,North,8,1200,0.15,8160.0
+1266,2023-07-05,Desk Lamp,Home Decor,North,8,60,0.15,408.0
+1267,2023-07-05,Wireless Mouse,Electronics,North,6,45,0.2,216.0
+1268,2023-07-06,Wireless Mouse,Electronics,South,5,45,0.2,180.0
+1269,2023-07-07,Storage Cabinet,Furniture,East,7,280,0.2,1568.0
+1270,2023-07-07,Smart Speaker,Electronics,East,8,95,0.2,608.0
+1271,2023-07-07,Storage Cabinet,Furniture,West,2,280,0,560
+1272,2023-07-10,Smart Speaker,Electronics,South,7,95,0.15,565.25
+1273,2023-07-10,Standing Desk,Furniture,West,6,550,0.15,2805.0
+1274,2023-07-10,Desk Lamp,Home Decor,West,2,60,0.1,108.0
+1275,2023-07-11,Inkjet Printer,Office Supplies,East,6,180,0.05,1026.0
+1276,2023-07-11,Plant Pot,Home Decor,North,2,30,0,60
+1277,2023-07-12,Desk Lamp,Home Decor,North,6,60,0.05,342.0
+1278,2023-07-13,Laptop Pro 14,Electronics,East,2,1200,0.15,2040.0
+1279,2023-07-13,Inkjet Printer,Office Supplies,West,1,180,0.1,162.0
+1280,2023-07-13,Storage Cabinet,Furniture,East,6,280,0,1680
+1281,2023-07-14,Smart Speaker,Electronics,South,3,95,0.15,242.25
+1282,2023-07-14,Standing Desk,Furniture,North,6,550,0.2,2640.0
+1283,2023-07-14,Inkjet Printer,Office Supplies,North,5,180,0.2,720.0
+1284,2023-07-17,Desk Lamp,Home Decor,North,5,60,0,300
+1285,2023-07-18,Notebook Set,Office Supplies,East,6,18,0.1,97.2
+1286,2023-07-19,Office Chair,Furniture,South,7,220,0,1540
+1287,2023-07-20,Laptop Pro 14,Electronics,North,4,1200,0.15,4080.0
+1288,2023-07-21,Plant Pot,Home Decor,East,3,30,0.1,81.0
+1289,2023-07-21,Notebook Set,Office Supplies,East,2,18,0,36
+1290,2023-07-24,Office Chair,Furniture,North,2,220,0.1,396.0
+1291,2023-07-25,Desk Lamp,Home Decor,West,8,60,0.15,408.0
+1292,2023-07-25,Notebook Set,Office Supplies,South,2,18,0.1,32.4
+1293,2023-07-26,Wireless Mouse,Electronics,East,8,45,0.2,288.0
+1294,2023-07-26,Notebook Set,Office Supplies,North,4,18,0.15,61.2
+1295,2023-07-27,Laptop Pro 14,Electronics,North,4,1200,0.1,4320.0
+1296,2023-07-27,Standing Desk,Furniture,South,5,550,0.1,2475.0
+1297,2023-07-27,Inkjet Printer,Office Supplies,North,1,180,0.15,153.0
+1298,2023-07-28,Desk Lamp,Home Decor,South,3,60,0.15,153.0
+1299,2023-07-28,Smart Speaker,Electronics,South,6,95,0,570
+1300,2023-07-28,Desk Lamp,Home Decor,North,7,60,0,420
+1301,2023-07-31,Wireless Mouse,Electronics,East,7,45,0.2,252.0
+1302,2023-07-31,Desk Lamp,Home Decor,West,5,60,0,300
+1303,2023-08-01,Laptop Pro 14,Electronics,East,3,1200,0.2,2880.0
+1304,2023-08-01,Plant Pot,Home Decor,East,2,30,0.15,51.0
+1305,2023-08-02,Standing Desk,Furniture,West,7,550,0.2,3080.0
+1306,2023-08-03,Desk Lamp,Home Decor,East,6,60,0.05,342.0
+1307,2023-08-04,Office Chair,Furniture,North,2,220,0.2,352.0
+1308,2023-08-04,Smart Speaker,Electronics,South,6,95,0.1,513.0
+1309,2023-08-07,Office Chair,Furniture,South,2,220,0.05,418.0
+1310,2023-08-07,Notebook Set,Office Supplies,South,3,18,0.2,43.2
+1311,2023-08-07,Office Chair,Furniture,North,3,220,0.15,561.0
+1312,2023-08-08,Storage Cabinet,Furniture,West,6,280,0.1,1512.0
+1313,2023-08-08,Office Chair,Furniture,West,2,220,0.15,374.0
+1314,2023-08-09,Notebook Set,Office Supplies,East,1,18,0.1,16.2
+1315,2023-08-09,Smart Speaker,Electronics,North,5,95,0.15,403.75
+1316,2023-08-10,Laptop Pro 14,Electronics,North,6,1200,0.1,6480.0
+1317,2023-08-10,Wireless Mouse,Electronics,North,7,45,0.15,267.75
+1318,2023-08-11,Smart Speaker,Electronics,North,8,95,0.2,608.0
+1319,2023-08-11,Standing Desk,Furniture,East,8,550,0.2,3520.0
+1320,2023-08-11,Office Chair,Furniture,North,8,220,0,1760
+1321,2023-08-14,Wireless Mouse,Electronics,South,1,45,0.05,42.75
+1322,2023-08-14,Plant Pot,Home Decor,West,3,30,0.1,81.0
+1323,2023-08-15,Notebook Set,Office Supplies,West,7,18,0.1,113.4
+1324,2023-08-15,Storage Cabinet,Furniture,North,6,280,0,1680
+1325,2023-08-16,Wireless Mouse,Electronics,West,5,45,0.1,202.5
+1326,2023-08-16,Storage Cabinet,Furniture,South,6,280,0,1680
+1327,2023-08-17,Office Chair,Furniture,East,5,220,0.15,935.0
+1328,2023-08-17,Office Chair,Furniture,North,5,220,0.2,880.0
+1329,2023-08-17,Desk Lamp,Home Decor,East,3,60,0.2,144.0
+1330,2023-08-18,Desk Lamp,Home Decor,East,1,60,0.1,54.0
+1331,2023-08-21,Office Chair,Furniture,South,6,220,0.15,1122.0
+1332,2023-08-21,Standing Desk,Furniture,South,3,550,0.05,1567.5
+1333,2023-08-22,Notebook Set,Office Supplies,North,1,18,0.1,16.2
+1334,2023-08-23,Office Chair,Furniture,West,3,220,0.05,627.0
+1335,2023-08-23,Office Chair,Furniture,South,8,220,0,1760
+1336,2023-08-23,Desk Lamp,Home Decor,East,4,60,0.15,204.0
+1337,2023-08-24,Notebook Set,Office Supplies,West,4,18,0.2,57.6
+1338,2023-08-24,Standing Desk,Furniture,East,8,550,0.05,4180.0
+1339,2023-08-24,Inkjet Printer,Office Supplies,West,8,180,0.1,1296.0
+1340,2023-08-25,Smart Speaker,Electronics,West,3,95,0.05,270.75
+1341,2023-08-25,Storage Cabinet,Furniture,South,5,280,0,1400
+1342,2023-08-28,Plant Pot,Home Decor,East,2,30,0.2,48.0
+1343,2023-08-28,Wireless Mouse,Electronics,East,2,45,0.05,85.5
+1344,2023-08-28,Notebook Set,Office Supplies,West,3,18,0.15,45.9
+1345,2023-08-29,Standing Desk,Furniture,West,6,550,0,3300
+1346,2023-08-30,Laptop Pro 14,Electronics,West,6,1200,0.05,6840.0
+1347,2023-08-30,Desk Lamp,Home Decor,North,6,60,0.05,342.0
+1348,2023-08-31,Inkjet Printer,Office Supplies,North,6,180,0.05,1026.0
+1349,2023-09-01,Laptop Pro 14,Electronics,East,8,1200,0.05,9120.0
+1350,2023-09-04,Plant Pot,Home Decor,West,1,30,0,30
+1351,2023-09-04,Laptop Pro 14,Electronics,East,4,1200,0.05,4560.0
+1352,2023-09-04,Smart Speaker,Electronics,West,2,95,0.1,171.0
+1353,2023-09-05,Notebook Set,Office Supplies,North,1,18,0.05,17.1
+1354,2023-09-06,Storage Cabinet,Furniture,West,2,280,0,560
+1355,2023-09-06,Plant Pot,Home Decor,North,4,30,0.05,114.0
+1356,2023-09-07,Desk Lamp,Home Decor,North,6,60,0.05,342.0
+1357,2023-09-07,Storage Cabinet,Furniture,West,3,280,0,840
+1358,2023-09-08,Inkjet Printer,Office Supplies,North,1,180,0.15,153.0
+1359,2023-09-08,Plant Pot,Home Decor,North,7,30,0.1,189.0
+1360,2023-09-08,Notebook Set,Office Supplies,North,6,18,0,108
+1361,2023-09-11,Standing Desk,Furniture,North,6,550,0.05,3135.0
+1362,2023-09-11,Laptop Pro 14,Electronics,East,6,1200,0.05,6840.0
+1363,2023-09-12,Plant Pot,Home Decor,West,3,30,0.05,85.5
+1364,2023-09-12,Wireless Mouse,Electronics,West,1,45,0.1,40.5
+1365,2023-09-12,Standing Desk,Furniture,North,4,550,0,2200
+1366,2023-09-13,Notebook Set,Office Supplies,West,8,18,0.1,129.6
+1367,2023-09-13,Laptop Pro 14,Electronics,South,5,1200,0.1,5400.0
+1368,2023-09-14,Inkjet Printer,Office Supplies,East,2,180,0.1,324.0
+1369,2023-09-15,Desk Lamp,Home Decor,West,7,60,0.1,378.0
+1370,2023-09-15,Office Chair,Furniture,West,8,220,0.1,1584.0
+1371,2023-09-18,Notebook Set,Office Supplies,North,7,18,0,126
+1372,2023-09-18,Desk Lamp,Home Decor,South,5,60,0.1,270.0
+1373,2023-09-18,Wireless Mouse,Electronics,North,6,45,0.1,243.0
+1374,2023-09-19,Plant Pot,Home Decor,West,3,30,0.15,76.5
+1375,2023-09-19,Inkjet Printer,Office Supplies,West,1,180,0.1,162.0
+1376,2023-09-20,Desk Lamp,Home Decor,East,1,60,0,60
+1377,2023-09-20,Desk Lamp,Home Decor,East,3,60,0,180
+1378,2023-09-20,Office Chair,Furniture,West,1,220,0.05,209.0
+1379,2023-09-21,Standing Desk,Furniture,East,6,550,0.15,2805.0
+1380,2023-09-22,Laptop Pro 14,Electronics,South,8,1200,0.1,8640.0
+1381,2023-09-22,Inkjet Printer,Office Supplies,West,2,180,0.2,288.0
+1382,2023-09-22,Office Chair,Furniture,East,7,220,0.1,1386.0
+1383,2023-09-25,Notebook Set,Office Supplies,South,2,18,0,36
+1384,2023-09-25,Office Chair,Furniture,West,7,220,0.2,1232.0
+1385,2023-09-25,Wireless Mouse,Electronics,East,5,45,0.15,191.25
+1386,2023-09-26,Storage Cabinet,Furniture,East,8,280,0.05,2128.0
+1387,2023-09-27,Office Chair,Furniture,North,8,220,0.05,1672.0
+1388,2023-09-28,Plant Pot,Home Decor,North,6,30,0.1,162.0
+1389,2023-09-28,Wireless Mouse,Electronics,East,5,45,0.05,213.75
+1390,2023-09-28,Office Chair,Furniture,East,4,220,0,880
+1391,2023-09-29,Office Chair,Furniture,South,8,220,0,1760
+1392,2023-10-02,Smart Speaker,Electronics,East,8,95,0.2,608.0
+1393,2023-10-02,Office Chair,Furniture,North,2,220,0.1,396.0
+1394,2023-10-03,Plant Pot,Home Decor,West,7,30,0.2,168.0
+1395,2023-10-03,Wireless Mouse,Electronics,South,6,45,0,270
+1396,2023-10-04,Plant Pot,Home Decor,East,3,30,0.2,72.0
+1397,2023-10-04,Storage Cabinet,Furniture,South,3,280,0.15,714.0
+1398,2023-10-05,Laptop Pro 14,Electronics,North,3,1200,0.1,3240.0
+1399,2023-10-05,Office Chair,Furniture,South,6,220,0.05,1254.0
+1400,2023-10-05,Inkjet Printer,Office Supplies,East,2,180,0.1,324.0
+1401,2023-10-06,Smart Speaker,Electronics,East,3,95,0.1,256.5
+1402,2023-10-09,Smart Speaker,Electronics,North,3,95,0.2,228.0
+1403,2023-10-09,Storage Cabinet,Furniture,South,3,280,0.2,672.0
+1404,2023-10-09,Storage Cabinet,Furniture,East,1,280,0,280
+1405,2023-10-10,Laptop Pro 14,Electronics,East,4,1200,0.2,3840.0
+1406,2023-10-11,Storage Cabinet,Furniture,North,8,280,0.2,1792.0
+1407,2023-10-11,Notebook Set,Office Supplies,East,8,18,0.05,136.8
+1408,2023-10-12,Desk Lamp,Home Decor,East,8,60,0,480
+1409,2023-10-12,Laptop Pro 14,Electronics,South,8,1200,0.15,8160.0
+1410,2023-10-12,Plant Pot,Home Decor,West,4,30,0.1,108.0
+1411,2023-10-13,Office Chair,Furniture,East,6,220,0.1,1188.0
+1412,2023-10-13,Desk Lamp,Home Decor,South,6,60,0.2,288.0
+1413,2023-10-13,Smart Speaker,Electronics,North,6,95,0.05,541.5
+1414,2023-10-16,Wireless Mouse,Electronics,East,8,45,0.05,342.0
+1415,2023-10-16,Office Chair,Furniture,North,1,220,0.1,198.0
+1416,2023-10-17,Storage Cabinet,Furniture,West,4,280,0.05,1064.0
+1417,2023-10-17,Inkjet Printer,Office Supplies,East,4,180,0.05,684.0
+1418,2023-10-18,Smart Speaker,Electronics,West,8,95,0.1,684.0
+1419,2023-10-18,Plant Pot,Home Decor,North,2,30,0.15,51.0
+1420,2023-10-19,Plant Pot,Home Decor,South,4,30,0.2,96.0
+1421,2023-10-19,Inkjet Printer,Office Supplies,North,1,180,0.1,162.0
+1422,2023-10-19,Plant Pot,Home Decor,West,5,30,0.2,120.0
+1423,2023-10-20,Wireless Mouse,Electronics,West,3,45,0.1,121.5
+1424,2023-10-23,Inkjet Printer,Office Supplies,West,6,180,0,1080
+1425,2023-10-23,Desk Lamp,Home Decor,North,4,60,0.1,216.0
+1426,2023-10-23,Smart Speaker,Electronics,East,2,95,0.15,161.5
+1427,2023-10-24,Plant Pot,Home Decor,East,2,30,0.05,57.0
+1428,2023-10-24,Wireless Mouse,Electronics,West,6,45,0.1,243.0
+1429,2023-10-24,Smart Speaker,Electronics,East,3,95,0.05,270.75
+1430,2023-10-25,Smart Speaker,Electronics,West,1,95,0,95
+1431,2023-10-25,Laptop Pro 14,Electronics,South,6,1200,0.15,6120.0
+1432,2023-10-25,Smart Speaker,Electronics,West,3,95,0.2,228.0
+1433,2023-10-26,Office Chair,Furniture,East,6,220,0.05,1254.0
+1434,2023-10-26,Desk Lamp,Home Decor,East,6,60,0.2,288.0
+1435,2023-10-26,Smart Speaker,Electronics,West,5,95,0.15,403.75
+1436,2023-10-27,Inkjet Printer,Office Supplies,East,2,180,0.15,306.0
+1437,2023-10-30,Notebook Set,Office Supplies,North,8,18,0.1,129.6
+1438,2023-10-30,Storage Cabinet,Furniture,South,1,280,0.2,224.0
+1439,2023-10-30,Plant Pot,Home Decor,South,7,30,0.05,199.5
+1440,2023-10-31,Standing Desk,Furniture,North,2,550,0.05,1045.0
+1441,2023-10-31,Laptop Pro 14,Electronics,West,6,1200,0.15,6120.0
+1442,2023-10-31,Office Chair,Furniture,West,4,220,0.15,748.0
+1443,2023-11-01,Storage Cabinet,Furniture,West,1,280,0.05,266.0
+1444,2023-11-01,Smart Speaker,Electronics,South,6,95,0.15,484.5
+1445,2023-11-01,Smart Speaker,Electronics,West,6,95,0.05,541.5
+1446,2023-11-02,Smart Speaker,Electronics,East,6,95,0.1,513.0
+1447,2023-11-02,Storage Cabinet,Furniture,West,4,280,0.05,1064.0
+1448,2023-11-03,Smart Speaker,Electronics,East,4,95,0.1,342.0
+1449,2023-11-03,Notebook Set,Office Supplies,South,8,18,0.1,129.6
+1450,2023-11-06,Inkjet Printer,Office Supplies,East,5,180,0,900
+1451,2023-11-06,Storage Cabinet,Furniture,West,7,280,0.1,1764.0
+1452,2023-11-07,Notebook Set,Office Supplies,North,5,18,0,90
+1453,2023-11-08,Plant Pot,Home Decor,East,8,30,0.05,228.0
+1454,2023-11-08,Standing Desk,Furniture,East,5,550,0.05,2612.5
+1455,2023-11-09,Storage Cabinet,Furniture,South,4,280,0,1120
+1456,2023-11-10,Smart Speaker,Electronics,South,4,95,0,380
+1457,2023-11-10,Wireless Mouse,Electronics,West,6,45,0.15,229.5
+1458,2023-11-10,Wireless Mouse,Electronics,South,1,45,0.2,36.0
+1459,2023-11-13,Desk Lamp,Home Decor,West,8,60,0.05,456.0
+1460,2023-11-14,Inkjet Printer,Office Supplies,East,1,180,0,180
+1461,2023-11-14,Storage Cabinet,Furniture,South,1,280,0.05,266.0
+1462,2023-11-15,Office Chair,Furniture,North,7,220,0.15,1309.0
+1463,2023-11-15,Office Chair,Furniture,East,1,220,0,220
+1464,2023-11-16,Storage Cabinet,Furniture,North,6,280,0.1,1512.0
+1465,2023-11-16,Plant Pot,Home Decor,West,3,30,0.2,72.0
+1466,2023-11-17,Notebook Set,Office Supplies,South,2,18,0.1,32.4
+1467,2023-11-17,Office Chair,Furniture,West,5,220,0.05,1045.0
+1468,2023-11-20,Inkjet Printer,Office Supplies,East,4,180,0.05,684.0
+1469,2023-11-21,Desk Lamp,Home Decor,West,6,60,0,360
+1470,2023-11-21,Desk Lamp,Home Decor,North,3,60,0.05,171.0
+1471,2023-11-21,Plant Pot,Home Decor,East,4,30,0,120
+1472,2023-11-22,Desk Lamp,Home Decor,South,8,60,0.1,432.0
+1473,2023-11-22,Inkjet Printer,Office Supplies,East,1,180,0.1,162.0
+1474,2023-11-23,Inkjet Printer,Office Supplies,South,1,180,0,180
+1475,2023-11-23,Plant Pot,Home Decor,East,3,30,0.15,76.5
+1476,2023-11-23,Smart Speaker,Electronics,East,2,95,0.1,171.0
+1477,2023-11-24,Storage Cabinet,Furniture,South,4,280,0.05,1064.0
+1478,2023-11-24,Plant Pot,Home Decor,South,8,30,0.2,192.0
+1479,2023-11-27,Desk Lamp,Home Decor,West,4,60,0.05,228.0
+1480,2023-11-27,Storage Cabinet,Furniture,North,8,280,0.2,1792.0
+1481,2023-11-28,Inkjet Printer,Office Supplies,North,2,180,0,360
+1482,2023-11-28,Smart Speaker,Electronics,South,3,95,0.05,270.75
+1483,2023-11-28,Inkjet Printer,Office Supplies,West,2,180,0.05,342.0
+1484,2023-11-29,Storage Cabinet,Furniture,West,2,280,0.2,448.0
+1485,2023-11-29,Plant Pot,Home Decor,North,8,30,0.05,228.0
+1486,2023-11-29,Smart Speaker,Electronics,West,8,95,0.2,608.0
+1487,2023-11-30,Smart Speaker,Electronics,West,5,95,0,475
+1488,2023-12-01,Notebook Set,Office Supplies,North,4,18,0.2,57.6
+1489,2023-12-01,Wireless Mouse,Electronics,North,7,45,0.1,283.5
+1490,2023-12-04,Wireless Mouse,Electronics,North,2,45,0.15,76.5
+1491,2023-12-04,Laptop Pro 14,Electronics,East,7,1200,0.05,7980.0
+1492,2023-12-04,Office Chair,Furniture,West,6,220,0.15,1122.0
+1493,2023-12-05,Desk Lamp,Home Decor,West,2,60,0.2,96.0
+1494,2023-12-05,Office Chair,Furniture,East,2,220,0.05,418.0
+1495,2023-12-06,Desk Lamp,Home Decor,South,4,60,0,240
+1496,2023-12-06,Laptop Pro 14,Electronics,East,8,1200,0.2,7680.0
+1497,2023-12-06,Desk Lamp,Home Decor,West,4,60,0.05,228.0
+1498,2023-12-07,Inkjet Printer,Office Supplies,South,5,180,0.05,855.0
+1499,2023-12-07,Wireless Mouse,Electronics,North,7,45,0.2,252.0
+1500,2023-12-08,Standing Desk,Furniture,South,2,550,0,1100
+1501,2023-12-11,Laptop Pro 14,Electronics,West,1,1200,0.05,1140.0
+1502,2023-12-11,Laptop Pro 14,Electronics,West,8,1200,0.05,9120.0
+1503,2023-12-11,Smart Speaker,Electronics,South,1,95,0.05,90.25
+1504,2023-12-12,Notebook Set,Office Supplies,South,6,18,0.2,86.4
+1505,2023-12-12,Storage Cabinet,Furniture,East,4,280,0.1,1008.0
+1506,2023-12-12,Office Chair,Furniture,South,7,220,0.1,1386.0
+1507,2023-12-13,Laptop Pro 14,Electronics,South,7,1200,0.2,6720.0
+1508,2023-12-13,Plant Pot,Home Decor,North,6,30,0.15,153.0
+1509,2023-12-14,Inkjet Printer,Office Supplies,West,7,180,0.05,1197.0
+1510,2023-12-14,Notebook Set,Office Supplies,West,3,18,0.2,43.2
+1511,2023-12-14,Plant Pot,Home Decor,South,4,30,0.1,108.0
+1512,2023-12-15,Office Chair,Furniture,West,1,220,0.2,176.0
+1513,2023-12-15,Desk Lamp,Home Decor,West,3,60,0.15,153.0
+1514,2023-12-15,Standing Desk,Furniture,East,4,550,0.1,1980.0
+1515,2023-12-18,Wireless Mouse,Electronics,West,6,45,0,270
+1516,2023-12-18,Smart Speaker,Electronics,South,1,95,0.1,85.5
+1517,2023-12-18,Desk Lamp,Home Decor,North,2,60,0.05,114.0
+1518,2023-12-19,Smart Speaker,Electronics,South,8,95,0.05,722.0
+1519,2023-12-19,Inkjet Printer,Office Supplies,East,1,180,0.05,171.0
+1520,2023-12-19,Standing Desk,Furniture,North,8,550,0.05,4180.0
+1521,2023-12-20,Storage Cabinet,Furniture,South,7,280,0.05,1862.0
+1522,2023-12-20,Smart Speaker,Electronics,East,5,95,0.15,403.75
+1523,2023-12-20,Plant Pot,Home Decor,East,5,30,0.1,135.0
+1524,2023-12-21,Smart Speaker,Electronics,West,8,95,0,760
+1525,2023-12-21,Plant Pot,Home Decor,East,4,30,0.1,108.0
+1526,2023-12-22,Desk Lamp,Home Decor,North,4,60,0.05,228.0
+1527,2023-12-22,Laptop Pro 14,Electronics,East,7,1200,0.1,7560.0
+1528,2023-12-25,Standing Desk,Furniture,East,4,550,0.15,1870.0
+1529,2023-12-26,Standing Desk,Furniture,West,6,550,0.1,2970.0
+1530,2023-12-26,Plant Pot,Home Decor,West,8,30,0.05,228.0
+1531,2023-12-26,Inkjet Printer,Office Supplies,South,3,180,0.2,432.0
+1532,2023-12-27,Office Chair,Furniture,North,1,220,0,220
+1533,2023-12-27,Laptop Pro 14,Electronics,North,7,1200,0.05,7980.0
+1534,2023-12-28,Standing Desk,Furniture,North,3,550,0,1650
+1535,2023-12-28,Standing Desk,Furniture,West,6,550,0,3300
+1536,2023-12-28,Storage Cabinet,Furniture,West,8,280,0,2240
+1537,2023-12-29,Smart Speaker,Electronics,West,1,95,0,95
+1538,2024-01-01,Notebook Set,Office Supplies,East,1,18,0.2,14.4
+1539,2024-01-01,Desk Lamp,Home Decor,South,2,60,0,120
+1540,2024-01-01,Smart Speaker,Electronics,South,4,95,0.05,361.0
+1541,2024-01-02,Smart Speaker,Electronics,East,6,95,0.1,513.0
+1542,2024-01-02,Desk Lamp,Home Decor,North,6,60,0.15,306.0
+1543,2024-01-02,Plant Pot,Home Decor,South,4,30,0.1,108.0
+1544,2024-01-03,Wireless Mouse,Electronics,North,2,45,0.15,76.5
+1545,2024-01-03,Desk Lamp,Home Decor,West,8,60,0,480
+1546,2024-01-03,Laptop Pro 14,Electronics,South,2,1200,0.15,2040.0
+1547,2024-01-04,Inkjet Printer,Office Supplies,North,1,180,0.05,171.0
+1548,2024-01-04,Standing Desk,Furniture,West,5,550,0,2750
+1549,2024-01-05,Notebook Set,Office Supplies,North,3,18,0.1,48.6
+1550,2024-01-08,Standing Desk,Furniture,South,7,550,0,3850
+1551,2024-01-09,Office Chair,Furniture,South,7,220,0.2,1232.0
+1552,2024-01-09,Inkjet Printer,Office Supplies,West,3,180,0,540
+1553,2024-01-10,Inkjet Printer,Office Supplies,North,2,180,0.15,306.0
+1554,2024-01-10,Standing Desk,Furniture,North,6,550,0.2,2640.0
+1555,2024-01-10,Storage Cabinet,Furniture,West,6,280,0,1680
+1556,2024-01-11,Notebook Set,Office Supplies,West,8,18,0.05,136.8
+1557,2024-01-11,Inkjet Printer,Office Supplies,West,7,180,0.05,1197.0
+1558,2024-01-11,Storage Cabinet,Furniture,West,2,280,0.2,448.0
+1559,2024-01-12,Standing Desk,Furniture,North,2,550,0.1,990.0
+1560,2024-01-12,Office Chair,Furniture,West,3,220,0.15,561.0
+1561,2024-01-15,Inkjet Printer,Office Supplies,North,2,180,0,360
+1562,2024-01-15,Notebook Set,Office Supplies,West,6,18,0.1,97.2
+1563,2024-01-16,Office Chair,Furniture,North,3,220,0.15,561.0
+1564,2024-01-17,Smart Speaker,Electronics,West,2,95,0,190
+1565,2024-01-17,Wireless Mouse,Electronics,East,2,45,0.2,72.0
+1566,2024-01-18,Inkjet Printer,Office Supplies,West,1,180,0.1,162.0
+1567,2024-01-18,Desk Lamp,Home Decor,West,2,60,0.2,96.0
+1568,2024-01-18,Standing Desk,Furniture,South,7,550,0.05,3657.5
+1569,2024-01-19,Notebook Set,Office Supplies,East,5,18,0.15,76.5
+1570,2024-01-22,Wireless Mouse,Electronics,South,7,45,0.1,283.5
+1571,2024-01-23,Notebook Set,Office Supplies,West,2,18,0.1,32.4
+1572,2024-01-23,Notebook Set,Office Supplies,South,8,18,0.2,115.2
+1573,2024-01-24,Standing Desk,Furniture,West,2,550,0.05,1045.0
+1574,2024-01-24,Notebook Set,Office Supplies,North,7,18,0.1,113.4
+1575,2024-01-24,Storage Cabinet,Furniture,West,6,280,0.15,1428.0
+1576,2024-01-25,Desk Lamp,Home Decor,South,5,60,0.1,270.0
+1577,2024-01-25,Storage Cabinet,Furniture,South,8,280,0.1,2016.0
+1578,2024-01-26,Desk Lamp,Home Decor,East,5,60,0.15,255.0
+1579,2024-01-29,Standing Desk,Furniture,East,7,550,0.1,3465.0
+1580,2024-01-29,Desk Lamp,Home Decor,East,2,60,0.2,96.0
+1581,2024-01-29,Standing Desk,Furniture,South,1,550,0.15,467.5
+1582,2024-01-30,Standing Desk,Furniture,West,5,550,0,2750
+1583,2024-01-30,Desk Lamp,Home Decor,West,3,60,0.1,162.0
+1584,2024-01-30,Standing Desk,Furniture,East,3,550,0.15,1402.5
+1585,2024-01-31,Wireless Mouse,Electronics,West,8,45,0.2,288.0
+1586,2024-01-31,Desk Lamp,Home Decor,West,1,60,0.1,54.0
+1587,2024-02-01,Smart Speaker,Electronics,North,2,95,0.05,180.5
+1588,2024-02-01,Inkjet Printer,Office Supplies,South,1,180,0.2,144.0
+1589,2024-02-01,Desk Lamp,Home Decor,East,7,60,0,420
+1590,2024-02-02,Wireless Mouse,Electronics,East,4,45,0.2,144.0
+1591,2024-02-05,Smart Speaker,Electronics,South,8,95,0.1,684.0
+1592,2024-02-05,Desk Lamp,Home Decor,West,3,60,0.1,162.0
+1593,2024-02-05,Laptop Pro 14,Electronics,West,2,1200,0.1,2160.0
+1594,2024-02-06,Wireless Mouse,Electronics,North,3,45,0.1,121.5
+1595,2024-02-06,Notebook Set,Office Supplies,East,8,18,0.05,136.8
+1596,2024-02-07,Plant Pot,Home Decor,East,8,30,0,240
+1597,2024-02-07,Plant Pot,Home Decor,West,6,30,0,180
+1598,2024-02-07,Notebook Set,Office Supplies,North,2,18,0,36
+1599,2024-02-08,Wireless Mouse,Electronics,South,4,45,0.2,144.0
+1600,2024-02-08,Office Chair,Furniture,South,6,220,0.2,1056.0
+1601,2024-02-09,Plant Pot,Home Decor,South,7,30,0.05,199.5
+1602,2024-02-09,Office Chair,Furniture,West,7,220,0,1540
+1603,2024-02-12,Storage Cabinet,Furniture,South,8,280,0.2,1792.0
+1604,2024-02-12,Desk Lamp,Home Decor,West,1,60,0.05,57.0
+1605,2024-02-12,Standing Desk,Furniture,East,2,550,0.2,880.0
+1606,2024-02-13,Smart Speaker,Electronics,South,6,95,0.1,513.0
+1607,2024-02-14,Plant Pot,Home Decor,North,5,30,0.15,127.5
+1608,2024-02-15,Inkjet Printer,Office Supplies,West,7,180,0.2,1008.0
+1609,2024-02-15,Wireless Mouse,Electronics,East,6,45,0.15,229.5
+1610,2024-02-15,Storage Cabinet,Furniture,South,5,280,0.2,1120.0
+1611,2024-02-16,Wireless Mouse,Electronics,South,6,45,0,270
+1612,2024-02-16,Standing Desk,Furniture,East,2,550,0.05,1045.0
+1613,2024-02-16,Inkjet Printer,Office Supplies,South,7,180,0.15,1071.0
+1614,2024-02-19,Office Chair,Furniture,West,7,220,0.05,1463.0
+1615,2024-02-19,Plant Pot,Home Decor,South,3,30,0.15,76.5
+1616,2024-02-19,Notebook Set,Office Supplies,South,3,18,0.1,48.6
+1617,2024-02-20,Storage Cabinet,Furniture,North,6,280,0,1680
+1618,2024-02-20,Plant Pot,Home Decor,South,4,30,0.15,102.0
+1619,2024-02-21,Smart Speaker,Electronics,West,7,95,0.15,565.25
+1620,2024-02-21,Desk Lamp,Home Decor,West,8,60,0.05,456.0
+1621,2024-02-21,Wireless Mouse,Electronics,North,4,45,0.1,162.0
+1622,2024-02-22,Notebook Set,Office Supplies,South,5,18,0.05,85.5
+1623,2024-02-23,Storage Cabinet,Furniture,West,2,280,0.2,448.0
+1624,2024-02-23,Wireless Mouse,Electronics,East,6,45,0.2,216.0
+1625,2024-02-26,Plant Pot,Home Decor,South,7,30,0,210
+1626,2024-02-27,Standing Desk,Furniture,East,1,550,0.15,467.5
+1627,2024-02-27,Notebook Set,Office Supplies,East,2,18,0.15,30.6
+1628,2024-02-27,Wireless Mouse,Electronics,South,4,45,0.2,144.0
+1629,2024-02-28,Inkjet Printer,Office Supplies,West,3,180,0.2,432.0
+1630,2024-02-28,Office Chair,Furniture,South,4,220,0,880
+1631,2024-02-28,Storage Cabinet,Furniture,East,5,280,0.2,1120.0
+1632,2024-02-29,Office Chair,Furniture,East,5,220,0.1,990.0
+1633,2024-02-29,Storage Cabinet,Furniture,East,2,280,0.05,532.0
+1634,2024-02-29,Desk Lamp,Home Decor,North,5,60,0.05,285.0
+1635,2024-03-01,Office Chair,Furniture,South,3,220,0.1,594.0
+1636,2024-03-01,Standing Desk,Furniture,West,8,550,0.05,4180.0
+1637,2024-03-01,Storage Cabinet,Furniture,East,7,280,0.15,1666.0
+1638,2024-03-04,Wireless Mouse,Electronics,North,7,45,0.2,252.0
+1639,2024-03-04,Notebook Set,Office Supplies,East,8,18,0.15,122.4
+1640,2024-03-05,Storage Cabinet,Furniture,North,2,280,0.15,476.0
+1641,2024-03-05,Inkjet Printer,Office Supplies,North,7,180,0.05,1197.0
+1642,2024-03-06,Standing Desk,Furniture,West,5,550,0.1,2475.0
+1643,2024-03-06,Notebook Set,Office Supplies,East,3,18,0.2,43.2
+1644,2024-03-07,Inkjet Printer,Office Supplies,North,1,180,0,180
+1645,2024-03-07,Plant Pot,Home Decor,North,2,30,0.05,57.0
+1646,2024-03-08,Plant Pot,Home Decor,North,7,30,0.05,199.5
+1647,2024-03-08,Office Chair,Furniture,East,3,220,0.1,594.0
+1648,2024-03-11,Inkjet Printer,Office Supplies,East,2,180,0.1,324.0
+1649,2024-03-12,Office Chair,Furniture,North,7,220,0.1,1386.0
+1650,2024-03-12,Standing Desk,Furniture,West,2,550,0,1100
+1651,2024-03-12,Laptop Pro 14,Electronics,South,8,1200,0,9600
+1652,2024-03-13,Storage Cabinet,Furniture,South,8,280,0,2240
+1653,2024-03-14,Inkjet Printer,Office Supplies,North,7,180,0.05,1197.0
+1654,2024-03-15,Wireless Mouse,Electronics,South,7,45,0,315
+1655,2024-03-15,Wireless Mouse,Electronics,North,6,45,0.1,243.0
+1656,2024-03-18,Office Chair,Furniture,West,3,220,0.05,627.0
+1657,2024-03-18,Wireless Mouse,Electronics,North,3,45,0.15,114.75
+1658,2024-03-19,Standing Desk,Furniture,South,7,550,0.2,3080.0
+1659,2024-03-19,Plant Pot,Home Decor,South,2,30,0,60
+1660,2024-03-20,Wireless Mouse,Electronics,West,6,45,0.15,229.5
+1661,2024-03-21,Office Chair,Furniture,South,5,220,0,1100
+1662,2024-03-21,Standing Desk,Furniture,East,1,550,0.1,495.0
+1663,2024-03-22,Smart Speaker,Electronics,South,7,95,0.1,598.5
+1664,2024-03-25,Laptop Pro 14,Electronics,South,8,1200,0.15,8160.0
+1665,2024-03-25,Wireless Mouse,Electronics,South,8,45,0.2,288.0
+1666,2024-03-25,Wireless Mouse,Electronics,North,6,45,0.1,243.0
+1667,2024-03-26,Desk Lamp,Home Decor,West,6,60,0.2,288.0
+1668,2024-03-27,Office Chair,Furniture,West,2,220,0,440
+1669,2024-03-27,Storage Cabinet,Furniture,North,1,280,0.1,252.0
+1670,2024-03-27,Standing Desk,Furniture,North,1,550,0.15,467.5
+1671,2024-03-28,Notebook Set,Office Supplies,West,7,18,0.15,107.1
+1672,2024-03-28,Wireless Mouse,Electronics,South,5,45,0,225
+1673,2024-03-28,Notebook Set,Office Supplies,North,4,18,0.05,68.4
+1674,2024-03-29,Inkjet Printer,Office Supplies,West,2,180,0.1,324.0
+1675,2024-03-29,Desk Lamp,Home Decor,South,1,60,0.05,57.0
+1676,2024-03-29,Wireless Mouse,Electronics,West,2,45,0.15,76.5
+1677,2024-04-01,Storage Cabinet,Furniture,North,5,280,0.05,1330.0
+1678,2024-04-01,Wireless Mouse,Electronics,North,3,45,0,135
+1679,2024-04-01,Office Chair,Furniture,West,6,220,0.2,1056.0
+1680,2024-04-02,Notebook Set,Office Supplies,South,6,18,0.05,102.6
+1681,2024-04-02,Notebook Set,Office Supplies,North,1,18,0.1,16.2
+1682,2024-04-02,Desk Lamp,Home Decor,East,2,60,0.1,108.0
+1683,2024-04-03,Storage Cabinet,Furniture,North,8,280,0.15,1904.0
+1684,2024-04-03,Smart Speaker,Electronics,East,1,95,0.15,80.75
+1685,2024-04-03,Storage Cabinet,Furniture,South,6,280,0.05,1596.0
+1686,2024-04-04,Wireless Mouse,Electronics,North,4,45,0.2,144.0
+1687,2024-04-04,Laptop Pro 14,Electronics,North,1,1200,0.05,1140.0
+1688,2024-04-05,Plant Pot,Home Decor,East,7,30,0.05,199.5
+1689,2024-04-08,Laptop Pro 14,Electronics,West,4,1200,0.1,4320.0
+1690,2024-04-09,Desk Lamp,Home Decor,East,5,60,0,300
+1691,2024-04-10,Inkjet Printer,Office Supplies,North,1,180,0.05,171.0
+1692,2024-04-10,Standing Desk,Furniture,North,7,550,0,3850
+1693,2024-04-10,Plant Pot,Home Decor,East,5,30,0.1,135.0
+1694,2024-04-11,Smart Speaker,Electronics,West,1,95,0.1,85.5
+1695,2024-04-12,Notebook Set,Office Supplies,East,4,18,0.15,61.2
+1696,2024-04-15,Storage Cabinet,Furniture,West,4,280,0.2,896.0
+1697,2024-04-15,Standing Desk,Furniture,South,1,550,0.15,467.5
+1698,2024-04-16,Standing Desk,Furniture,East,1,550,0.1,495.0
+1699,2024-04-17,Desk Lamp,Home Decor,East,2,60,0.05,114.0
+1700,2024-04-18,Standing Desk,Furniture,West,8,550,0,4400
+1701,2024-04-18,Office Chair,Furniture,East,2,220,0,440
+1702,2024-04-18,Standing Desk,Furniture,West,6,550,0.15,2805.0
+1703,2024-04-19,Wireless Mouse,Electronics,North,3,45,0.15,114.75
+1704,2024-04-19,Wireless Mouse,Electronics,North,7,45,0.05,299.25
+1705,2024-04-19,Standing Desk,Furniture,East,5,550,0.1,2475.0
+1706,2024-04-22,Inkjet Printer,Office Supplies,East,8,180,0.1,1296.0
+1707,2024-04-22,Standing Desk,Furniture,North,4,550,0.05,2090.0
+1708,2024-04-23,Wireless Mouse,Electronics,South,2,45,0.05,85.5
+1709,2024-04-23,Plant Pot,Home Decor,West,6,30,0.15,153.0
+1710,2024-04-23,Wireless Mouse,Electronics,East,4,45,0.15,153.0
+1711,2024-04-24,Plant Pot,Home Decor,East,2,30,0,60
+1712,2024-04-24,Office Chair,Furniture,East,5,220,0.1,990.0
+1713,2024-04-25,Laptop Pro 14,Electronics,North,1,1200,0.15,1020.0
+1714,2024-04-25,Wireless Mouse,Electronics,North,8,45,0.1,324.0
+1715,2024-04-25,Smart Speaker,Electronics,South,4,95,0.2,304.0
+1716,2024-04-26,Smart Speaker,Electronics,West,5,95,0.15,403.75
+1717,2024-04-29,Wireless Mouse,Electronics,West,8,45,0.05,342.0
+1718,2024-04-29,Smart Speaker,Electronics,South,6,95,0.15,484.5
+1719,2024-04-30,Smart Speaker,Electronics,South,5,95,0.05,451.25
+1720,2024-04-30,Office Chair,Furniture,North,3,220,0,660
+1721,2024-05-01,Inkjet Printer,Office Supplies,South,5,180,0.15,765.0
+1722,2024-05-01,Wireless Mouse,Electronics,East,6,45,0.1,243.0
+1723,2024-05-01,Desk Lamp,Home Decor,East,1,60,0.1,54.0
+1724,2024-05-02,Laptop Pro 14,Electronics,North,1,1200,0.1,1080.0
+1725,2024-05-02,Wireless Mouse,Electronics,North,4,45,0,180
+1726,2024-05-03,Smart Speaker,Electronics,South,8,95,0.15,646.0
+1727,2024-05-06,Notebook Set,Office Supplies,East,5,18,0.15,76.5
+1728,2024-05-06,Plant Pot,Home Decor,North,5,30,0.1,135.0
+1729,2024-05-07,Office Chair,Furniture,West,7,220,0.1,1386.0
+1730,2024-05-07,Standing Desk,Furniture,West,5,550,0,2750
+1731,2024-05-08,Smart Speaker,Electronics,North,7,95,0.1,598.5
+1732,2024-05-08,Laptop Pro 14,Electronics,East,2,1200,0.2,1920.0
+1733,2024-05-09,Storage Cabinet,Furniture,North,7,280,0.05,1862.0
+1734,2024-05-09,Desk Lamp,Home Decor,North,2,60,0.2,96.0
+1735,2024-05-10,Storage Cabinet,Furniture,East,5,280,0.1,1260.0
+1736,2024-05-13,Wireless Mouse,Electronics,West,6,45,0,270
+1737,2024-05-13,Standing Desk,Furniture,West,6,550,0.1,2970.0
+1738,2024-05-14,Storage Cabinet,Furniture,West,4,280,0.15,952.0
+1739,2024-05-15,Laptop Pro 14,Electronics,West,2,1200,0.05,2280.0
+1740,2024-05-16,Notebook Set,Office Supplies,East,1,18,0,18
+1741,2024-05-17,Plant Pot,Home Decor,West,5,30,0.1,135.0
+1742,2024-05-20,Office Chair,Furniture,North,2,220,0.2,352.0
+1743,2024-05-21,Inkjet Printer,Office Supplies,East,3,180,0.15,459.0
+1744,2024-05-21,Smart Speaker,Electronics,West,6,95,0.2,456.0
+1745,2024-05-22,Notebook Set,Office Supplies,North,5,18,0.05,85.5
+1746,2024-05-22,Laptop Pro 14,Electronics,North,3,1200,0.1,3240.0
+1747,2024-05-23,Storage Cabinet,Furniture,East,2,280,0,560
+1748,2024-05-23,Inkjet Printer,Office Supplies,North,6,180,0.15,918.0
+1749,2024-05-23,Plant Pot,Home Decor,East,4,30,0.15,102.0
+1750,2024-05-24,Standing Desk,Furniture,East,3,550,0.2,1320.0
+1751,2024-05-27,Office Chair,Furniture,South,3,220,0.1,594.0
+1752,2024-05-28,Storage Cabinet,Furniture,South,4,280,0.2,896.0
+1753,2024-05-28,Laptop Pro 14,Electronics,South,7,1200,0.1,7560.0
+1754,2024-05-29,Notebook Set,Office Supplies,West,8,18,0.05,136.8
+1755,2024-05-30,Plant Pot,Home Decor,South,8,30,0,240
+1756,2024-05-31,Wireless Mouse,Electronics,East,5,45,0.05,213.75
+1757,2024-06-03,Desk Lamp,Home Decor,East,7,60,0.1,378.0
+1758,2024-06-03,Wireless Mouse,Electronics,North,2,45,0.1,81.0
+1759,2024-06-03,Smart Speaker,Electronics,West,4,95,0,380
+1760,2024-06-04,Laptop Pro 14,Electronics,West,2,1200,0.15,2040.0
+1761,2024-06-04,Standing Desk,Furniture,South,8,550,0.15,3740.0
+1762,2024-06-05,Desk Lamp,Home Decor,North,2,60,0.15,102.0
+1763,2024-06-05,Storage Cabinet,Furniture,North,4,280,0.1,1008.0
+1764,2024-06-06,Wireless Mouse,Electronics,South,8,45,0.1,324.0
+1765,2024-06-06,Notebook Set,Office Supplies,West,3,18,0.05,51.3
+1766,2024-06-07,Laptop Pro 14,Electronics,East,8,1200,0.2,7680.0
+1767,2024-06-10,Wireless Mouse,Electronics,West,7,45,0.05,299.25
+1768,2024-06-10,Smart Speaker,Electronics,North,4,95,0.1,342.0
+1769,2024-06-11,Office Chair,Furniture,East,7,220,0.2,1232.0
+1770,2024-06-11,Plant Pot,Home Decor,South,6,30,0.2,144.0
+1771,2024-06-12,Plant Pot,Home Decor,West,7,30,0.15,178.5
+1772,2024-06-12,Storage Cabinet,Furniture,East,2,280,0.1,504.0
+1773,2024-06-13,Office Chair,Furniture,East,3,220,0.15,561.0
+1774,2024-06-13,Inkjet Printer,Office Supplies,South,6,180,0,1080
+1775,2024-06-14,Laptop Pro 14,Electronics,South,3,1200,0.2,2880.0
+1776,2024-06-14,Standing Desk,Furniture,West,4,550,0,2200
+1777,2024-06-17,Smart Speaker,Electronics,East,6,95,0.05,541.5
+1778,2024-06-17,Office Chair,Furniture,South,3,220,0.05,627.0
+1779,2024-06-18,Office Chair,Furniture,West,8,220,0.15,1496.0
+1780,2024-06-18,Notebook Set,Office Supplies,South,1,18,0.1,16.2
+1781,2024-06-19,Inkjet Printer,Office Supplies,North,4,180,0.2,576.0
+1782,2024-06-19,Standing Desk,Furniture,North,1,550,0,550
+1783,2024-06-20,Smart Speaker,Electronics,North,6,95,0.1,513.0
+1784,2024-06-20,Wireless Mouse,Electronics,West,3,45,0.15,114.75
+1785,2024-06-21,Notebook Set,Office Supplies,West,7,18,0,126
+1786,2024-06-21,Standing Desk,Furniture,West,5,550,0.15,2337.5
+1787,2024-06-24,Storage Cabinet,Furniture,South,3,280,0,840
+1788,2024-06-24,Laptop Pro 14,Electronics,South,3,1200,0.15,3060.0
+1789,2024-06-24,Plant Pot,Home Decor,North,1,30,0.05,28.5
+1790,2024-06-25,Wireless Mouse,Electronics,North,4,45,0.05,171.0
+1791,2024-06-25,Standing Desk,Furniture,East,8,550,0.1,3960.0`;
+
+// Parse
+const parsed = Papa.parse(RAW_CSV.trim(), { header: true, skipEmptyLines: true });
+let RAW = parsed.data.map(r => ({
+  order_id: r.Order_ID,
+  date: r.Order_Date,
+  year: r.Order_Date ? parseInt(r.Order_Date.slice(0,4)) : null,
+  month: r.Order_Date ? r.Order_Date.slice(0,7) : null,
+  quarter: r.Order_Date ? 'Q'+Math.ceil(parseInt(r.Order_Date.slice(5,7))/3) : null,
+  product: (r.Product||'').trim() || 'Unknown',
+  category: (r.Category||'').trim() || 'Unknown',
+  region: (r.Region||'').trim() || 'Unknown',
+  quantity: parseFloat(r.Quantity)||0,
+  unit_price: parseFloat(r.Unit_Price)||0,
+  revenue: parseFloat(r.Revenue)||0
+})).filter(r => r.revenue > 0 && r.year);
+
+// Filters
+const fYear=document.getElementById('fYear'), fCategory=document.getElementById('fCategory'), fRegion=document.getElementById('fRegion'), fProduct=document.getElementById('fProduct'), fTopN=document.getElementById('fTopN');
+function addOpts(el, vals) { vals.sort().forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;el.appendChild(o);}); }
+addOpts(fCategory,[...new Set(RAW.map(r=>r.category))].filter(Boolean));
+addOpts(fRegion,[...new Set(RAW.map(r=>r.region))].filter(Boolean));
+addOpts(fProduct,[...new Set(RAW.map(r=>r.product))].filter(Boolean));
+function getFiltered(){let d=RAW;if(fYear.value!=='all')d=d.filter(r=>r.year===parseInt(fYear.value));if(fCategory.value!=='all')d=d.filter(r=>r.category===fCategory.value);if(fRegion.value!=='all')d=d.filter(r=>r.region===fRegion.value);if(fProduct.value!=='all')d=d.filter(r=>r.product===fProduct.value);return d;}
+[fYear,fCategory,fRegion,fProduct,fTopN].forEach(el=>el.addEventListener('change',render));
+document.getElementById('resetBtn').addEventListener('click',()=>{fYear.value='all';fCategory.value='all';fRegion.value='all';fProduct.value='all';fTopN.value='8';render();});
+
+// Chart registry
+const charts={};
+function dc(id){if(charts[id]){charts[id].destroy();delete charts[id];}}
+
+// Palettes
+const P=['#6366f1','#8b5cf6','#06b6d4','#10b981','#f59e0b','#ef4444','#ec4899','#a78bfa'];
+const CC={'Electronics':'#6366f1','Furniture':'#10b981','Office Supplies':'#f59e0b','Home Decor':'#06b6d4'};
+
+function fmt(n){if(n>=1e6)return'$'+(n/1e6).toFixed(2)+'M';if(n>=1e3)return'$'+(n/1e3).toFixed(1)+'K';return'$'+n.toFixed(0);}
+function fmtN(n){if(n>=1e3)return(n/1e3).toFixed(1)+'K';return n.toLocaleString();}
+
+const BD={responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#94a3b8',font:{family:'Inter',size:11}}},tooltip:{backgroundColor:'#1e2640',borderColor:'rgba(99,102,241,0.3)',borderWidth:1,titleColor:'#f1f5f9',bodyColor:'#94a3b8',padding:10,cornerRadius:8}},scales:{x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#64748b',font:{family:'Inter',size:10}}},y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#64748b',font:{family:'Inter',size:10}}}}};
+
+function render(){
+  const data=getFiltered(); if(!data.length) return;
+  const topN=parseInt(fTopN.value);
+  const totalRev=data.reduce((s,r)=>s+r.revenue,0);
+  const totalOrd=new Set(data.map(r=>r.order_id)).size;
+  const totalQty=data.reduce((s,r)=>s+r.quantity,0);
+  const aov=totalRev/totalOrd;
+  const avgPrc=data.reduce((s,r)=>s+r.unit_price,0)/data.length;
+  const days=new Set(data.map(r=>r.date)).size;
+
+  document.getElementById('kRevenue').textContent=fmt(totalRev);
+  document.getElementById('kOrders').textContent=fmtN(totalOrd);
+  document.getElementById('kUnits').textContent=fmtN(totalQty);
+  document.getElementById('kAOV').textContent=fmt(aov);
+  document.getElementById('kAvgPrice').textContent=fmt(avgPrc);
+  document.getElementById('kDaily').textContent=fmt(days?totalRev/days:0);
+
+  const rev23=RAW.filter(r=>r.year===2023).reduce((s,r)=>s+r.revenue,0);
+  const rev24=RAW.filter(r=>r.year===2024).reduce((s,r)=>s+r.revenue,0);
+  const tEl=document.getElementById('kRevTrend');
+  if(fYear.value==='all'&&rev23>0){const p=((rev24-rev23)/rev23*100).toFixed(1);tEl.textContent=(p>0?'▲ ':'▼ ')+Math.abs(p)+'% YoY';tEl.className='kpi-trend '+(p>0?'trend-up':'trend-down');}else tEl.textContent='';
+
+  // Monthly trend
+  const mMap={};data.forEach(r=>{if(r.month)mMap[r.month]=(mMap[r.month]||0)+r.revenue;});
+  const months=Object.keys(mMap).sort();
+  dc('trend');
+  const tCtx=document.getElementById('trendChart').getContext('2d');
+  const grad=tCtx.createLinearGradient(0,0,0,230);grad.addColorStop(0,'rgba(99,102,241,0.35)');grad.addColorStop(1,'rgba(99,102,241,0)');
+  const MN=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  charts.trend=new Chart(tCtx,{type:'line',data:{labels:months.map(m=>MN[parseInt(m.slice(5))-1]+' '+m.slice(2,4)),datasets:[{label:'Revenue',data:months.map(m=>mMap[m]),borderColor:'#6366f1',backgroundColor:grad,borderWidth:2.5,pointBackgroundColor:'#6366f1',pointRadius:4,fill:true,tension:0.4}]},options:{...BD,plugins:{...BD.plugins,legend:{display:false},tooltip:{...BD.plugins.tooltip,callbacks:{label:c=>' '+fmt(c.raw)}}},scales:{...BD.scales,y:{...BD.scales.y,ticks:{...BD.scales.y.ticks,callback:v=>fmt(v)}}}}});
+
+  // Category donut
+  const cMap={};data.forEach(r=>{cMap[r.category]=(cMap[r.category]||0)+r.revenue;});
+  const cats=Object.keys(cMap).sort((a,b)=>cMap[b]-cMap[a]);
+  dc('catD');charts.catD=new Chart(document.getElementById('categoryDonut').getContext('2d'),{type:'doughnut',data:{labels:cats,datasets:[{data:cats.map(c=>cMap[c]),backgroundColor:cats.map(c=>CC[c]||P[cats.indexOf(c)%P.length]),borderColor:'#161d2e',borderWidth:3,hoverOffset:8}]},options:{...BD,cutout:'62%',scales:{},plugins:{...BD.plugins,tooltip:{...BD.plugins.tooltip,callbacks:{label:c=>` ${c.label}: ${fmt(c.raw)}`}}}}});
+
+  // Top products
+  const pMap={};data.forEach(r=>{if(r.product!=='Unknown')pMap[r.product]=(pMap[r.product]||0)+r.revenue;});
+  const sProds=Object.keys(pMap).sort((a,b)=>pMap[b]-pMap[a]).slice(0,topN);
+  dc('topP');charts.topP=new Chart(document.getElementById('topProductsChart').getContext('2d'),{type:'bar',data:{labels:sProds,datasets:[{data:sProds.map(p=>pMap[p]),backgroundColor:sProds.map((_,i)=>P[i%P.length]+'cc'),borderColor:sProds.map((_,i)=>P[i%P.length]),borderWidth:1,borderRadius:5}]},options:{...BD,indexAxis:'y',plugins:{...BD.plugins,legend:{display:false},tooltip:{...BD.plugins.tooltip,callbacks:{label:c=>' '+fmt(c.raw)}}},scales:{...BD.scales,x:{...BD.scales.x,ticks:{...BD.scales.x.ticks,callback:v=>fmt(v)}}}}});
+
+  // Region
+  const rMap={};data.forEach(r=>{rMap[r.region]=(rMap[r.region]||0)+r.revenue;});
+  const regs=Object.keys(rMap).sort((a,b)=>rMap[b]-rMap[a]);
+  dc('reg');charts.reg=new Chart(document.getElementById('regionChart').getContext('2d'),{type:'bar',data:{labels:regs,datasets:[{data:regs.map(r=>rMap[r]),backgroundColor:['#6366f1cc','#10b981cc','#06b6d4cc','#f59e0bcc'],borderColor:['#6366f1','#10b981','#06b6d4','#f59e0b'],borderWidth:1,borderRadius:6}]},options:{...BD,plugins:{...BD.plugins,legend:{display:false},tooltip:{...BD.plugins.tooltip,callbacks:{label:c=>' '+fmt(c.raw)}}},scales:{...BD.scales,y:{...BD.scales.y,ticks:{...BD.scales.y.ticks,callback:v=>fmt(v)}}}}});
+
+  // Units by category polar
+  const qMap={};data.forEach(r=>{qMap[r.category]=(qMap[r.category]||0)+r.quantity;});
+  const catsQ=Object.keys(qMap).sort((a,b)=>qMap[b]-qMap[a]);
+  dc('cQ');charts.cQ=new Chart(document.getElementById('categoryQtyChart').getContext('2d'),{type:'polarArea',data:{labels:catsQ,datasets:[{data:catsQ.map(c=>qMap[c]),backgroundColor:catsQ.map(c=>(CC[c]||P[catsQ.indexOf(c)])+'99'),borderColor:catsQ.map(c=>CC[c]||P[catsQ.indexOf(c)]),borderWidth:2}]},options:{...BD,scales:{},plugins:{...BD.plugins,tooltip:{...BD.plugins.tooltip,callbacks:{label:c=>` ${c.label}: ${fmtN(c.raw)} units`}}}}});
+
+  // Quarterly
+  const qRev={2023:{Q1:0,Q2:0,Q3:0,Q4:0},2024:{Q1:0,Q2:0,Q3:0,Q4:0}};
+  data.forEach(r=>{if(qRev[r.year]&&r.quarter)qRev[r.year][r.quarter]=(qRev[r.year][r.quarter]||0)+r.revenue;});
+  const qL=['Q1','Q2','Q3','Q4'];
+  dc('qtr');charts.qtr=new Chart(document.getElementById('quarterlyChart').getContext('2d'),{type:'bar',data:{labels:qL,datasets:[{label:'2023',data:qL.map(q=>qRev[2023][q]||0),backgroundColor:'rgba(99,102,241,0.7)',borderColor:'#6366f1',borderWidth:1,borderRadius:5},{label:'2024',data:qL.map(q=>qRev[2024][q]||0),backgroundColor:'rgba(16,185,129,0.7)',borderColor:'#10b981',borderWidth:1,borderRadius:5}]},options:{...BD,plugins:{...BD.plugins,tooltip:{...BD.plugins.tooltip,callbacks:{label:c=>` ${c.dataset.label}: ${fmt(c.raw)}`}}},scales:{...BD.scales,y:{...BD.scales.y,ticks:{...BD.scales.y.ticks,callback:v=>fmt(v)}}}}});
+
+  // Region x Category stacked
+  const allCats=[...new Set(data.map(r=>r.category))];
+  const rcMap={};regs.forEach(reg=>{rcMap[reg]={};allCats.forEach(cat=>{rcMap[reg][cat]=0;});data.filter(r=>r.region===reg).forEach(r=>{rcMap[reg][r.category]=(rcMap[reg][r.category]||0)+r.revenue;});});
+  dc('rc');charts.rc=new Chart(document.getElementById('regionCategoryChart').getContext('2d'),{type:'bar',data:{labels:regs,datasets:allCats.map((cat,i)=>({label:cat,data:regs.map(reg=>rcMap[reg][cat]||0),backgroundColor:(CC[cat]||P[i%P.length])+'bb',borderColor:CC[cat]||P[i%P.length],borderWidth:1,borderRadius:3}))},options:{...BD,plugins:{...BD.plugins,tooltip:{...BD.plugins.tooltip,callbacks:{label:c=>` ${c.dataset.label}: ${fmt(c.raw)}`}}},scales:{...BD.scales,x:{...BD.scales.x,stacked:true},y:{...BD.scales.y,stacked:true,ticks:{...BD.scales.y.ticks,callback:v=>fmt(v)}}}}});
+
+  // Insights
+  const topCat=cats[0],topProd=sProds[0],topReg=regs[0];
+  const peakM=months.length?months.reduce((a,m)=>mMap[m]>mMap[a]?m:a,months[0]):null;
+  const peakL=peakM?MN[parseInt(peakM.slice(5))-1]+' '+peakM.slice(0,4):'—';
+  const insights=[
+    {title:'🏆 Top Category',value:topCat||'—',detail:`Generated ${fmt(cMap[topCat]||0)} revenue (${((cMap[topCat]||0)/totalRev*100).toFixed(1)}% share)`,color:CC[topCat]||'#6366f1'},
+    {title:'⭐ Top Product',value:topProd||'—',detail:`${fmt(pMap[topProd]||0)} total revenue across all regions`,color:'#8b5cf6'},
+    {title:'🌍 Top Region',value:topReg||'—',detail:`${fmt(rMap[topReg]||0)} revenue (${((rMap[topReg]||0)/totalRev*100).toFixed(1)}% of total)`,color:'#06b6d4'},
+    {title:'📅 Peak Month',value:peakL,detail:`Highest monthly revenue: ${fmt(peakM?mMap[peakM]:0)}`,color:'#f59e0b'},
+    {title:'💰 Avg Order Value',value:fmt(aov),detail:`${fmtN(totalOrd)} total unique orders processed`,color:'#10b981'},
+    {title:'📦 Avg Units / Order',value:(totalQty/totalOrd).toFixed(1),detail:`${fmtN(totalQty)} total units sold across all orders`,color:'#ef4444'}
+  ];
+  document.getElementById('insightGrid').innerHTML=insights.map(i=>`<div class="insight-card" style="--insight-color:${i.color}"><div class="insight-card-title">${i.title}</div><div class="insight-card-value">${i.value}</div><div class="insight-card-detail">${i.detail}</div></div>`).join('');
+
+  const recos=[
+    `<strong>Double down on ${topCat}</strong> — it accounts for ${((cMap[topCat]||0)/totalRev*100).toFixed(1)}% of total revenue. Expand the product range and run targeted promotions.`,
+    `<strong>Invest in the ${topReg} region</strong> — the top revenue contributor at ${fmt(rMap[topReg]||0)}. Consider regional incentives and increased marketing budget.`,
+    `<strong>Scale ${topProd} distribution</strong> — the single highest-revenue product. Ensure supply reliability and introduce bundle deals.`,
+    `<strong>Replicate ${peakL} success year-round</strong> — peak month performance shows clear seasonality. Analyze and replicate those conditions.`,
+    `<strong>Optimize discount strategy</strong> — implement tiered discounts to protect margins on high-value items like Laptop Pro 14.`,
+    `<strong>Boost lower-performing regions</strong> — targeted campaigns and dedicated account managers can improve regional sales parity.`
+  ];
+  document.getElementById('recoList').innerHTML=recos.map((r,i)=>`<li><span class="reco-num">${i+1}</span><span>${r}</span></li>`).join('');
+
+  // Product table
+  const pd={};data.forEach(r=>{if(!pd[r.product])pd[r.product]={category:r.category,revenue:0,qty:0,orders:new Set()};pd[r.product].revenue+=r.revenue;pd[r.product].qty+=r.quantity;pd[r.product].orders.add(r.order_id);});
+  const tProds=Object.keys(pd).filter(p=>p!=='Unknown').sort((a,b)=>pd[b].revenue-pd[a].revenue).slice(0,Math.max(topN,10));
+  const maxR=pd[tProds[0]]?.revenue||1;
+  document.getElementById('productTableBody').innerHTML=tProds.map((p,i)=>{
+    const d=pd[p],rank=i+1,rc=rank===1?'rank-1':rank===2?'rank-2':rank===3?'rank-3':'rank-n';
+    const share=(d.revenue/totalRev*100).toFixed(1);
+    const bar=`<div style="background:linear-gradient(90deg,${P[i%P.length]}66,transparent);height:4px;border-radius:2px;width:${(d.revenue/maxR*100).toFixed(0)}%;margin-top:4px"></div>`;
+    return `<tr><td><span class="rank-badge ${rc}">${rank}</span></td><td>${p}${bar}</td><td><span style="padding:2px 8px;border-radius:10px;font-size:0.7rem;background:${(CC[d.category]||'#6366f1')}22;color:${CC[d.category]||'#6366f1'}">${d.category}</span></td><td style="color:#f1f5f9;font-weight:700">${fmt(d.revenue)}</td><td>${fmtN(d.qty)}</td><td>${fmtN(d.orders.size)}</td><td>${fmt(d.revenue/d.qty)}</td><td><div style="display:flex;align-items:center;gap:6px"><div style="flex:1;height:6px;background:rgba(255,255,255,0.06);border-radius:3px"><div style="width:${share}%;height:100%;background:${P[i%P.length]};border-radius:3px"></div></div><span style="font-size:0.72rem;color:#94a3b8">${share}%</span></div></td></tr>`;
+  }).join('');
+
+  document.getElementById('exportBtn').onclick=()=>{
+    const rows=[['Rank','Product','Category','Revenue','Units','Orders','Avg Unit Price','Revenue Share%']];
+    tProds.forEach((p,i)=>{const d=pd[p];rows.push([i+1,p,d.category,d.revenue.toFixed(2),d.qty,d.orders.size,(d.revenue/d.qty).toFixed(2),(d.revenue/totalRev*100).toFixed(2)]);});
+    const csv=rows.map(r=>r.join(',')).join('\n');const blob=new Blob([csv],{type:'text/csv'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='top_products_sales.csv';a.click();
+  };
+}
+render();
+</script>
+</body>
+</html>
